@@ -9,6 +9,7 @@ import { indexView } from '../views/index.js'
 import { showView } from '../views/show.js'
 import { formView } from '../views/form.js'
 import { createActionRoutes } from './actions.js'
+import { getAdmin } from '../auth/middleware.js'
 
 interface CrudRoutesConfig {
   db: any
@@ -36,7 +37,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     const records = await db.select().from(table).limit(perPage).offset(offset)
 
     const flash = getFlash(c)
-    const admin = c.get('admin')
+    const admin = getAdmin(c)
     const csrfToken = await setCsrfCookie(c, sessionSecret)
 
     const content = indexView({
@@ -60,7 +61,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   // GET /new - Create form
   app.get('/new', async (c) => {
     const csrfToken = await setCsrfCookie(c, sessionSecret)
-    const admin = c.get('admin')
+    const admin = getAdmin(c)
 
     const content = formView({
       resource,
@@ -109,7 +110,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     }
 
     const flash = getFlash(c)
-    const admin = c.get('admin')
+    const admin = getAdmin(c)
     const csrfToken = await setCsrfCookie(c, sessionSecret)
 
     const { content, modals } = showView({
@@ -140,7 +141,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     }
 
     const csrfToken = await setCsrfCookie(c, sessionSecret)
-    const admin = c.get('admin')
+    const admin = getAdmin(c)
 
     const content = formView({
       resource,
