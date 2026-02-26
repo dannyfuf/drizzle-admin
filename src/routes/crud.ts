@@ -87,7 +87,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     }
 
     const body = await c.req.parseBody()
-    const values = parseFormValues(body, columns)
+    const values = parseFormValues(body, columns, resource.options.permitParams)
 
     try {
       const [created] = await db.insert(table).values(values).returning()
@@ -175,7 +175,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     }
 
     const body = await c.req.parseBody()
-    const values = parseFormValues(body, columns)
+    const values = parseFormValues(body, columns, resource.options.permitParams)
     values.updatedAt = new Date()
 
     try {
@@ -214,12 +214,13 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   return app
 }
 
-function parseFormValues(body: Record<string, any>, columns: ColumnMeta[]): Record<string, any> {
+function parseFormValues(body: Record<string, any>, columns: ColumnMeta[], permitParams?: string[]): Record<string, any> {
   const values: Record<string, any> = {}
 
   for (const col of columns) {
     if (col.isPrimaryKey) continue
     if (col.name === 'createdAt' || col.name === 'created_at') continue
+    if (permitParams && !permitParams.includes(col.name)) continue
 
     const rawValue = body[col.name]
 

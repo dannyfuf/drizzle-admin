@@ -23,7 +23,12 @@ export function formView(props: FormViewProps): string {
     ? `/${resource.routePath}/${id}?_method=PUT`
     : `/${resource.routePath}`
 
-  const editableColumns = columns.filter(col => !isAutoManaged(col))
+  let editableColumns = columns.filter(col => !isAutoManaged(col))
+
+  if (resource.options.permitParams) {
+    const permitted = new Set(resource.options.permitParams)
+    editableColumns = editableColumns.filter(col => permitted.has(col.name))
+  }
 
   const fields = editableColumns.map(col => renderField({
     column: col,

@@ -25,6 +25,7 @@ export interface CollectionAction {
 }
 
 export interface ResourceOptions {
+  permitParams?: string[]
   index?: IndexConfig
   show?: ShowConfig
   form?: FormConfig
