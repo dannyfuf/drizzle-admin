@@ -89,8 +89,8 @@ export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
     }
   }
 
-  async seed(params: { email: string; password: string }): Promise<void> {
-    const { email, password } = params
+  async seed(params: { email: string; password: string } & Record<string, unknown>): Promise<void> {
+    const { email, password, ...extra } = params
     const db = this.config.db as any
     const adminUsers = this.config.adminUsers as any
 
@@ -112,6 +112,7 @@ export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
       passwordHash,
       createdAt: new Date(),
       updatedAt: new Date(),
+      ...extra,
     })
 
     console.log(`Created admin user: ${email}`)
