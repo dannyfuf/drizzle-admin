@@ -1,0 +1,38 @@
+{
+  "name": "drizzle-admin",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./actions/csv": {
+      "import": "./dist/actions/csv.js",
+      "types": "./dist/actions/csv.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.x",
+    "bcrypt": "^5.x",
+    "drizzle-orm": "^0.35.x",
+    "hono": "^4.x",
+    "jose": "^5.x"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.x",
+    "@types/node": "^22.x",
+    "drizzle-kit": "^0.27.x",
+    "pg": "^8.x",
+    "typescript": "^5.x",
+    "vitest": "^2.x"
+  }
+}
