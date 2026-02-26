@@ -11,11 +11,30 @@ import { authMiddleware } from './auth/middleware.js'
 import { loginPage } from './views/login.js'
 import { hashPassword } from './auth/password.js'
 
+/**
+ * The main admin panel class that sets up routes, authentication, and CRUD
+ * interfaces for your Drizzle ORM tables.
+ *
+ * Supports both Node.js (via `@hono/node-server`) and Deno runtimes.
+ *
+ * @example
+ * ```ts
+ * const admin = new DrizzleAdmin(defineConfig({
+ *   db,
+ *   dialect: "postgresql",
+ *   adminUsers,
+ *   sessionSecret: "secret",
+ *   resourcesDir: "./resources",
+ * }));
+ * await admin.start();
+ * ```
+ */
 export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
   private config: DrizzleAdminConfig<T>
   private app: Hono
   private resources: ResourceDefinition[] = []
 
+  /** Creates a new DrizzleAdmin instance with the given configuration. */
   constructor(config: DrizzleAdminConfig<T>) {
     this.config = config
     this.app = new Hono()
@@ -27,6 +46,7 @@ export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
     }
   }
 
+  /** Loads resource definitions from the configured `resourcesDir` and validates them. */
   async initialize(): Promise<void> {
     const { resources, errors } = await loadResources(this.config.resourcesDir)
 
@@ -53,6 +73,7 @@ export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
     console.log(`[DrizzleAdmin] Loaded ${resources.length} resource(s)`)
   }
 
+  /** Returns the loaded resource definitions. */
   getResources(): ResourceDefinition[] {
     return this.resources
   }
@@ -89,6 +110,11 @@ export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
     }
   }
 
+  /**
+   * Seeds an admin user if one with the given email does not already exist.
+   *
+   * @param params - Must include `email` and `password`. Additional fields are passed through to the insert.
+   */
   async seed(params: { email: string; password: string } & Record<string, unknown>): Promise<void> {
     const { email, password, ...extra } = params
     const db = this.config.db as any
@@ -118,10 +144,12 @@ export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
     console.log(`Created admin user: ${email}`)
   }
 
+  /** Returns the underlying Hono app instance for custom route mounting. */
   getApp(): Hono {
     return this.app
   }
 
+  /** Initializes resources, sets up routes, and starts the HTTP server. */
   async start(): Promise<void> {
     await this.initialize()
     this.setupRoutes()
