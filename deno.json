@@ -1,0 +1,26 @@
+{
+  "name": "@dafu/drizzle-admin",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./actions/csv": "./src/actions/csv.ts"
+  },
+  "imports": {
+    "hono": "npm:hono@^4",
+    "hono/cookie": "npm:hono@^4/cookie",
+    "drizzle-orm": "npm:drizzle-orm@^0.35",
+    "jose": "npm:jose@^5",
+    "bcryptjs": "npm:bcryptjs@^2",
+    "@hono/node-server": "npm:@hono/node-server@^1"
+  },
+  "publish": {
+    "include": [
+      "src/**/*.ts",
+      "!src/**/*.test.ts",
+      "deno.json",
+      "README.md",
+      "LICENSE"
+    ]
+  }
+}

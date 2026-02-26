@@ -117,6 +117,10 @@ export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
     console.log(`Created admin user: ${email}`)
   }
 
+  getApp(): Hono {
+    return this.app
+  }
+
   async start(): Promise<void> {
     await this.initialize()
     this.setupRoutes()
@@ -124,10 +128,14 @@ export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
     const port = this.config.port ?? 3001
     console.log(`DrizzleAdmin running on http://localhost:${port}`)
 
-    const { serve } = await import('@hono/node-server')
-    serve({
-      fetch: this.app.fetch,
-      port,
-    })
+    if (typeof (globalThis as any).Deno !== 'undefined') {
+      ;(globalThis as any).Deno.serve({ port }, this.app.fetch)
+    } else {
+      const { serve } = await import('@hono/node-server')
+      serve({
+        fetch: this.app.fetch,
+        port,
+      })
+    }
   }
 }

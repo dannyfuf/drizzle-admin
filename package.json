@@ -22,13 +22,13 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.x",
-    "bcrypt": "^5.x",
+    "bcryptjs": "^2.x",
     "drizzle-orm": "^0.35.x",
     "hono": "^4.x",
     "jose": "^5.x"
   },
   "devDependencies": {
-    "@types/bcrypt": "^5.x",
+    "@types/bcryptjs": "^2.x",
     "@types/node": "^22.x",
     "drizzle-kit": "^0.27.x",
     "pg": "^8.x",

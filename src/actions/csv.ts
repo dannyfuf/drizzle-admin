@@ -1,7 +1,8 @@
 import type { Context } from 'hono'
 import { getTableName } from 'drizzle-orm'
+import type { CollectionAction } from '../resources/types.js'
 
-export function createCsvExportAction(table: unknown) {
+export function createCsvExportAction(table: unknown): CollectionAction {
   return {
     name: 'Export CSV',
     handler: async (c: Context, db: any) => {
