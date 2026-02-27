@@ -15,5 +15,5 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno install
-      - run: deno publish --allow-dirty
+      - run: deno install --frozen
+      - run: deno publish
