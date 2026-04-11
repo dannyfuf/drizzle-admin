@@ -1,6 +1,6 @@
 # DrizzleAdmin
 
-A server-rendered admin panel for [Drizzle ORM](https://orm.drizzle.team/) applications. Provides automatic CRUD interfaces for your database tables with minimal configuration.
+A server-rendered admin panel for [Drizzle ORM](https://orm.drizzle.team/) applications inspired by RoR [Active Admin](https://activeadmin.info/). Provides automatic CRUD interfaces for your database tables with minimal configuration.
 
 - Zero frontend build step - server-rendered HTML with Tailwind CSS via CDN
 - Dark mode UI inspired by shadcn
@@ -187,7 +187,7 @@ export default defineResource(posts, {
       name: 'Archive',
       destructive: true,  // shows confirmation modal (default: true)
       handler: async (id, db) => {
-        await (db as any)
+        await db
           .update(posts)
           .set({ status: 'archived' })
           .where(eq(posts.id, Number(id)))
@@ -197,7 +197,7 @@ export default defineResource(posts, {
       name: 'Publish',
       destructive: false,  // submits directly without confirmation
       handler: async (id, db) => {
-        await (db as any)
+        await db
           .update(posts)
           .set({ status: 'published', publishedAt: new Date() })
           .where(eq(posts.id, Number(id)))
@@ -223,7 +223,7 @@ export default defineResource(posts, {
     {
       name: 'Publish All Drafts',
       handler: async (c, db) => {
-        await (db as any)
+        await db
           .update(posts)
           .set({ status: 'published' })
           .where(eq(posts.status, 'draft'))
@@ -388,13 +388,13 @@ export default defineResource(posts, {
       name: 'Publish',
       destructive: false,
       handler: async (id, db) => {
-        await (db as any).update(posts).set({ status: 'published' }).where(eq(posts.id, Number(id)))
+        await db.update(posts).set({ status: 'published' }).where(eq(posts.id, Number(id)))
       },
     },
     {
       name: 'Archive',
       handler: async (id, db) => {
-        await (db as any).update(posts).set({ status: 'archived' }).where(eq(posts.id, Number(id)))
+        await db.update(posts).set({ status: 'archived' }).where(eq(posts.id, Number(id)))
       },
     },
   ],
@@ -436,9 +436,9 @@ await admin.start()
 
 ## API Reference
 
-### `DrizzleAdmin<T>`
+### `DrizzleAdmin`
 
-#### `constructor(config: DrizzleAdminConfig<T>)`
+#### `constructor(config: DrizzleAdminConfig)`
 
 Creates a new admin instance. Validates the admin users table schema and dialect at construction time.
 
