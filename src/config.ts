@@ -1,16 +1,10 @@
-/** The minimum required shape for the admin users table used by DrizzleAdmin authentication. */
-export interface MinimalAdminUsersTable {
-  id: unknown
-  email: unknown
-  passwordHash: unknown
-  createdAt: unknown
-  updatedAt: unknown
-}
+import type { Table } from 'drizzle-orm'
+import type { AnyPgDatabase } from '@/types.ts'
 
 /** Configuration options for a DrizzleAdmin instance. */
-export interface DrizzleAdminConfig<TAdminUsers extends MinimalAdminUsersTable> {
+export interface DrizzleAdminConfig<TAdminUsers extends Table = Table> {
   /** The Drizzle ORM database instance. */
-  db: unknown
+  db: AnyPgDatabase
   /** The SQL dialect to use. Currently only `"postgresql"` is supported. */
   dialect: 'postgresql' | 'mysql' | 'sqlite'
   /** The Drizzle table definition for admin users. */
@@ -29,7 +23,7 @@ export interface DrizzleAdminConfig<TAdminUsers extends MinimalAdminUsersTable> 
  * @param config - The admin panel configuration.
  * @returns The same configuration object, typed correctly.
  */
-export function defineConfig<T extends MinimalAdminUsersTable>(
+export function defineConfig<T extends Table>(
   config: DrizzleAdminConfig<T>
 ): DrizzleAdminConfig<T> {
   return config
