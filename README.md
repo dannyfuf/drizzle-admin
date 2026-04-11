@@ -7,14 +7,35 @@ A server-rendered admin panel for [Drizzle ORM](https://orm.drizzle.team/) appli
 - JWT authentication with bcrypt password hashing
 - File-based resource registration
 - Custom member and collection actions
+- Mount into existing Hono or Express apps, or run standalone
+- Sidebar folder grouping for organizing resources
+- Works with Node.js and Deno
 - PostgreSQL support (more dialects planned)
 
 ## Installation
+
+### npm / pnpm
 
 ```bash
 pnpm add drizzle-admin
 # or
 npm install drizzle-admin
+```
+
+### Deno / JSR
+
+```ts
+import { DrizzleAdmin } from '@dafu/drizzle-admin'
+```
+
+Or add to your import map:
+
+```json
+{
+  "imports": {
+    "drizzle-admin": "jsr:@dafu/drizzle-admin"
+  }
+}
 ```
 
 ### Peer Dependencies
@@ -111,6 +132,92 @@ Then open `http://localhost:3001` and sign in.
 | `sessionSecret` | `string` | Yes | - | Secret key for signing JWT tokens (use a strong random string) |
 | `resourcesDir` | `string` | Yes | - | Path to directory containing resource definition files |
 | `port` | `number` | No | `3001` | Port to run the admin server on |
+| `basePath` | `string` | No | `''` | Base URL path where the admin panel is mounted (e.g. `'/admin'`) |
+
+### `basePath`
+
+Use `basePath` when you want the admin panel to live under a sub-path. All routes, redirects, sidebar links, and form actions are automatically prefixed:
+
+```ts
+defineConfig({
+  // ...
+  basePath: '/admin',
+})
+```
+
+With `basePath: '/admin'`, the login page is served at `/admin/login`, resources at `/admin/posts`, etc. Trailing slashes are stripped automatically.
+
+## Integrating with Existing Apps
+
+Instead of running a standalone server with `start()`, you can use `build()` to get a handler and mount it into your existing application.
+
+### `build()`
+
+Returns a `DrizzleAdminHandler` with two properties:
+
+- `app` - the internal Hono app instance
+- `fetch` - a standard Web `fetch` handler: `(request: Request) => Response | Promise<Response>`
+
+```ts
+const admin = new DrizzleAdmin(
+  defineConfig({
+    db,
+    dialect: 'postgresql',
+    adminUsers,
+    sessionSecret: process.env.ADMIN_SESSION_SECRET!,
+    resourcesDir: './admin/resources',
+    basePath: '/admin',
+  })
+)
+
+const handler = await admin.build()
+```
+
+### Hono Adapter
+
+Mount DrizzleAdmin into an existing Hono application:
+
+```ts
+import { Hono } from 'hono'
+import { DrizzleAdmin, defineConfig } from 'drizzle-admin'
+import { honoAdapter } from 'drizzle-admin/hono'
+
+const app = new Hono()
+const admin = new DrizzleAdmin(defineConfig({ /* ... */ basePath: '/admin' }))
+const handler = await admin.build()
+
+app.route('/admin', honoAdapter(handler))
+
+export default app
+```
+
+### Express Adapter
+
+Mount DrizzleAdmin into an existing Express application:
+
+```ts
+import express from 'express'
+import { DrizzleAdmin, defineConfig } from 'drizzle-admin'
+import { expressAdapter } from 'drizzle-admin/express'
+
+const app = express()
+const admin = new DrizzleAdmin(defineConfig({ /* ... */ basePath: '/admin' }))
+const handler = await admin.build()
+
+app.use('/admin', expressAdapter(handler))
+
+app.listen(3000)
+```
+
+### Direct `fetch` Handler
+
+For any framework that supports the Web `fetch` API (Deno, Bun, Cloudflare Workers, etc.):
+
+```ts
+const handler = await admin.build()
+
+Deno.serve({ port: 3000 }, handler.fetch)
+```
 
 ## Resources
 
@@ -130,7 +237,8 @@ DrizzleAdmin will automatically:
 - Derive the display name (`posts` -> `Post`)
 - Extract all columns and render appropriate form inputs
 - Hide password columns from views
-- Skip auto-managed columns (primary keys, `createdAt`, `updatedAt`) in forms
+- Skip auto-managed columns (primary keys, `createdAt`, `updatedAt`) in create forms
+- Show auto-managed columns as disabled (read-only) fields on edit forms
 
 ### Resource with Options
 
@@ -141,6 +249,8 @@ import { defineResource } from 'drizzle-admin'
 import { posts } from '../../db/schema/posts'
 
 export default defineResource(posts, {
+  folder: 'Content',
+  permitParams: ['title', 'body', 'status'],
   index: {
     perPage: 50,
     exclude: ['body'],        // hide 'body' column from the listing
@@ -155,6 +265,30 @@ export default defineResource(posts, {
 ```
 
 ### Resource Options Reference
+
+#### `folder` - Sidebar grouping
+
+```ts
+export default defineResource(posts, {
+  folder: 'Content',
+})
+```
+
+Groups resources under collapsible folders in the sidebar. Resources without a `folder` appear at the top level. Folders auto-expand when the active resource is inside them. Resources are sorted alphabetically within each group.
+
+#### `permitParams` - Editable field whitelist
+
+```ts
+export default defineResource(posts, {
+  permitParams: ['title', 'body', 'status'],
+})
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `permitParams` | `string[]` | Only these columns are editable in forms and accepted in form submissions |
+
+When set, only the listed columns appear as editable fields. Auto-managed columns (`id`, `createdAt`, `updatedAt`) still appear as disabled fields on edit forms. This also acts as a server-side allowlist -- columns not in the list are ignored during form processing.
 
 #### `index` - Index/listing page
 
@@ -274,10 +408,14 @@ DrizzleAdmin automatically maps Drizzle column types to appropriate form inputs:
 
 ### Auto-managed Columns
 
-These columns are automatically excluded from create/edit forms:
+These columns are automatically detected as "auto-managed":
 - Primary key columns
 - `createdAt` / `created_at` (when they have a default value)
 - `updatedAt` / `updated_at` (when they have a default value)
+
+On **create forms**, auto-managed columns are hidden entirely.
+
+On **edit forms**, auto-managed columns are shown as disabled (read-only) fields with a muted visual style. This lets users see the values without accidentally modifying them.
 
 Password columns are automatically hidden from index and show views.
 
@@ -298,9 +436,30 @@ Use the `seed()` method to create admin users. It's safe to call on every startu
 await admin.seed({ email: 'admin@example.com', password: 'changeme' })
 ```
 
+You can pass additional fields if your admin users table has extra columns:
+
+```ts
+await admin.seed({
+  email: 'admin@example.com',
+  password: 'changeme',
+  name: 'Admin User',
+  role: 'super_admin',
+})
+```
+
+### Password Hashing Utility
+
+The `hashPassword` function is exported for use outside of DrizzleAdmin (e.g., in custom scripts or seeders):
+
+```ts
+import { hashPassword } from 'drizzle-admin'
+
+const hash = await hashPassword('my-password')
+```
+
 ## Routes
 
-For each resource, DrizzleAdmin generates these routes:
+For each resource, DrizzleAdmin generates these routes (prefixed with `basePath` if configured):
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -336,7 +495,7 @@ DrizzleAdmin derives URL paths and display names from your SQL table names:
 
 ## Full Example
 
-Here's a complete example with a blog schema:
+Here's a complete example with a blog schema using Hono integration:
 
 ```ts
 // db/schema.ts
@@ -379,6 +538,8 @@ import { eq } from 'drizzle-orm'
 import { posts } from '../../db/schema'
 
 export default defineResource(posts, {
+  folder: 'Content',
+  permitParams: ['title', 'body', 'status', 'featured'],
   index: {
     perPage: 25,
     exclude: ['body'],
@@ -409,8 +570,12 @@ export default defineResource(posts, {
 import { defineResource } from 'drizzle-admin'
 import { categories } from '../../db/schema'
 
-export default defineResource(categories)
+export default defineResource(categories, {
+  folder: 'Content',
+})
 ```
+
+### Standalone Server
 
 ```ts
 // admin/index.ts
@@ -434,6 +599,72 @@ await admin.seed({ email: 'admin@example.com', password: 'changeme' })
 await admin.start()
 ```
 
+### Mounted in Hono
+
+```ts
+// server.ts
+import { Hono } from 'hono'
+import { DrizzleAdmin, defineConfig } from 'drizzle-admin'
+import { honoAdapter } from 'drizzle-admin/hono'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { adminUsers } from './db/schema'
+
+const db = drizzle(process.env.DATABASE_URL!)
+
+const admin = new DrizzleAdmin(
+  defineConfig({
+    db,
+    dialect: 'postgresql',
+    adminUsers,
+    sessionSecret: process.env.ADMIN_SESSION_SECRET!,
+    resourcesDir: './admin/resources',
+    basePath: '/admin',
+  })
+)
+
+await admin.seed({ email: 'admin@example.com', password: 'changeme' })
+const handler = await admin.build()
+
+const app = new Hono()
+app.get('/', (c) => c.text('Hello!'))
+app.route('/admin', honoAdapter(handler))
+
+export default app
+```
+
+### Mounted in Express
+
+```ts
+// server.ts
+import express from 'express'
+import { DrizzleAdmin, defineConfig } from 'drizzle-admin'
+import { expressAdapter } from 'drizzle-admin/express'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { adminUsers } from './db/schema'
+
+const db = drizzle(process.env.DATABASE_URL!)
+
+const admin = new DrizzleAdmin(
+  defineConfig({
+    db,
+    dialect: 'postgresql',
+    adminUsers,
+    sessionSecret: process.env.ADMIN_SESSION_SECRET!,
+    resourcesDir: './admin/resources',
+    basePath: '/admin',
+  })
+)
+
+await admin.seed({ email: 'admin@example.com', password: 'changeme' })
+const handler = await admin.build()
+
+const app = express()
+app.get('/', (req, res) => res.send('Hello!'))
+app.use('/admin', expressAdapter(handler))
+
+app.listen(3000)
+```
+
 ## API Reference
 
 ### `DrizzleAdmin`
@@ -442,21 +673,34 @@ await admin.start()
 
 Creates a new admin instance. Validates the admin users table schema and dialect at construction time.
 
-#### `async seed(params: { email: string; password: string }): Promise<void>`
+#### `async build(): Promise<DrizzleAdminHandler>`
 
-Creates an admin user if one with that email doesn't already exist. Safe to call on every startup.
+Builds the admin panel without starting a server. Returns a `DrizzleAdminHandler` that can be mounted into an existing application via the Hono or Express adapters, or used directly with its `fetch` method.
+
+```ts
+interface DrizzleAdminHandler {
+  /** The internal Hono app */
+  app: Hono
+  /** Standard Web fetch handler */
+  fetch: (request: Request) => Response | Promise<Response>
+}
+```
 
 #### `async start(): Promise<void>`
 
-Loads resources, sets up all routes, and starts the HTTP server. This is the main entry point.
+Loads resources, sets up all routes, and starts the HTTP server. Auto-detects Node.js vs Deno at runtime.
+
+#### `async seed(params: { email: string; password: string } & Record<string, unknown>): Promise<void>`
+
+Creates an admin user if one with that email doesn't already exist. Safe to call on every startup. Accepts additional fields beyond `email` and `password` that are passed through to the insert.
 
 #### `async initialize(): Promise<void>`
 
-Loads and validates resources without starting the server. Called automatically by `start()`.
+Loads and validates resources without starting the server. Called automatically by `build()` and `start()`.
 
 #### `getResources(): ResourceDefinition[]`
 
-Returns the loaded resource definitions. Only available after `initialize()` or `start()` has been called.
+Returns the loaded resource definitions. Only available after `initialize()`, `build()`, or `start()` has been called.
 
 ### `defineConfig(config)`
 
@@ -469,6 +713,18 @@ Creates a resource definition for DrizzleAdmin to load. Must be the default expo
 ### `createCsvExportAction(table)`
 
 Factory function that creates a collection action for exporting all records as CSV. Import from `drizzle-admin/actions/csv`.
+
+### `hashPassword(password: string): Promise<string>`
+
+Hashes a plaintext password using bcrypt with 12 salt rounds. Useful for creating admin users in custom scripts or seeders.
+
+### `honoAdapter(handler: DrizzleAdminHandler): Hono`
+
+Returns the Hono sub-app from a handler. Import from `drizzle-admin/hono`.
+
+### `expressAdapter(handler: DrizzleAdminHandler): NodeMiddleware`
+
+Converts a handler into Express/Connect-compatible middleware. Import from `drizzle-admin/express`.
 
 ## Development
 
