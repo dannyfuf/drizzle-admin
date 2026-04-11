@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { slugify, renderMemberActions, renderCollectionActions } from './actions.js'
-import type { ResourceDefinition } from '../../resources/types.js'
+import { slugify, renderMemberActions, renderCollectionActions } from '@/views/components/actions.ts'
+import type { ResourceDefinition } from '@/resources/types.ts'
 
 describe('slugify', () => {
   it('converts to lowercase slug', () => {

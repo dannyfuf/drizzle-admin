@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { tableNameToRoutePath, tableNameToDisplayName } from './table.js'
+import { tableNameToRoutePath, tableNameToDisplayName } from '@/utils/table.ts'
 
 describe('tableNameToRoutePath', () => {
   it('converts underscores to hyphens', () => {

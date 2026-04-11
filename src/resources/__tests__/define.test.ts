@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { defineResource, isResourceExport } from './define.js'
+import { defineResource, isResourceExport } from '@/resources/define.ts'
 
 describe('defineResource', () => {
   it('works without options', () => {

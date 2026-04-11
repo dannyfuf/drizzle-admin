@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { renderPagination } from './pagination.js'
+import { renderPagination } from '@/views/components/pagination.ts'
 
 describe('renderPagination', () => {
   it('returns empty string for single page', () => {

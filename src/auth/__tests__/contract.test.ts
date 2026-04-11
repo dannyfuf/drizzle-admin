@@ -5,7 +5,7 @@ vi.mock('drizzle-orm', () => ({
   getTableColumns: (table: any) => table._columns,
 }))
 
-import { validateAdminUsersTable } from './contract.js'
+import { validateAdminUsersTable } from '@/auth/contract.ts'
 
 describe('validateAdminUsersTable', () => {
   it('passes for valid table with all required columns', () => {

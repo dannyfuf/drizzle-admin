@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createToken, verifyToken } from './jwt.js'
+import { createToken, verifyToken } from '@/auth/jwt.ts'
 
 const TEST_SECRET = 'test-secret-at-least-32-chars-long!'
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { renderField } from './field.js'
-import type { ColumnMeta } from '../../dialects/types.js'
+import { renderField } from '@/views/components/field.ts'
+import type { ColumnMeta } from '@/dialects/types.ts'
 
 function makeColumn(overrides: Partial<ColumnMeta> = {}): ColumnMeta {
   return {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hashPassword, verifyPassword } from './password.js'
+import { hashPassword, verifyPassword } from '@/auth/password.ts'
 
 describe('password', () => {
   it('hashPassword returns a bcrypt hash', async () => {
