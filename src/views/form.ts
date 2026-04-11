@@ -23,18 +23,43 @@ export function formView(props: FormViewProps): string {
     ? `/${resource.routePath}/${id}?_method=PUT`
     : `/${resource.routePath}`
 
-  let editableColumns = columns.filter(col => !isAutoManaged(col))
+  let fields: string
 
-  if (resource.options.permitParams) {
-    const permitted = new Set(resource.options.permitParams)
-    editableColumns = editableColumns.filter(col => permitted.has(col.name))
+  if (isEdit) {
+    // Edit: show ALL columns. Auto-managed ones are disabled.
+    let editableColumns = columns.filter(col => !isAutoManaged(col))
+    if (resource.options.permitParams) {
+      const permitted = new Set(resource.options.permitParams)
+      editableColumns = editableColumns.filter(col => permitted.has(col.name))
+    }
+    const disabledColumns = columns.filter(col => isAutoManaged(col))
+
+    const disabledFields = disabledColumns.map(col => renderField({
+      column: col,
+      value: record[col.name],
+      disabled: true,
+    })).join('')
+
+    const editableFields = editableColumns.map(col => renderField({
+      column: col,
+      value: record[col.name],
+      error: errors?.[col.name],
+    })).join('')
+
+    fields = disabledFields + editableFields
+  } else {
+    // Create: hide auto-managed columns entirely
+    let editableColumns = columns.filter(col => !isAutoManaged(col))
+    if (resource.options.permitParams) {
+      const permitted = new Set(resource.options.permitParams)
+      editableColumns = editableColumns.filter(col => permitted.has(col.name))
+    }
+    fields = editableColumns.map(col => renderField({
+      column: col,
+      value: record?.[col.name],
+      error: errors?.[col.name],
+    })).join('')
   }
-
-  const fields = editableColumns.map(col => renderField({
-    column: col,
-    value: record?.[col.name],
-    error: errors?.[col.name],
-  })).join('')
 
   const actionBar = isEdit ? `
     <div class="flex items-center gap-2">

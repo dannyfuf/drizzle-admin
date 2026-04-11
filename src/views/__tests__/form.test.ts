@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { formView, isAutoManaged } from '@/views/form.ts'
+import { styles } from '@/views/styles.ts'
 import type { ColumnMeta } from '@/dialects/types.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 import type { Table } from 'drizzle-orm'
@@ -53,7 +54,7 @@ describe('formView', () => {
   const columns = [
     makeColumn({ name: 'id', isPrimaryKey: true }),
     makeColumn({ name: 'title' }),
-    makeColumn({ name: 'createdAt', hasDefault: true }),
+    makeColumn({ name: 'createdAt', dataType: 'timestamp', hasDefault: true }),
   ]
 
   it('renders create form with POST action to resource path', () => {
@@ -107,18 +108,86 @@ describe('formView', () => {
     expect(html).toContain('/cards/5')
   })
 
-  it('filters out auto-managed columns', () => {
-    const html = formView({
-      resource: makeResource(),
-      columns,
-      csrfToken: 'token',
+  describe('create form', () => {
+    it('hides auto-managed columns entirely', () => {
+      const html = formView({
+        resource: makeResource(),
+        columns,
+        csrfToken: 'token',
+      })
+      expect(html).not.toContain('name="id"')
+      expect(html).not.toContain('name="createdAt"')
+      expect(html).toContain('name="title"')
     })
-    // id (primary key) and createdAt (has default) should be filtered out
-    expect(html).not.toContain('name="id"')
-    expect(html).toContain('name="title"')
   })
 
-  it('respects permitParams option', () => {
+  describe('edit form', () => {
+    it('renders id field as disabled input', () => {
+      const html = formView({
+        resource: makeResource(),
+        columns,
+        record: { id: 42, title: 'Test', createdAt: '2024-01-15T10:30' },
+        csrfToken: 'token',
+      })
+      expect(html).toContain('name="id"')
+      expect(html).toContain('disabled')
+      expect(html).toContain(styles.inputDisabled)
+    })
+
+    it('renders createdAt (with default) as disabled input', () => {
+      const html = formView({
+        resource: makeResource(),
+        columns,
+        record: { id: 1, title: 'Test', createdAt: '2024-01-15T10:30' },
+        csrfToken: 'token',
+      })
+      expect(html).toContain('name="createdAt"')
+      // The createdAt field should be rendered as disabled
+      // Count occurrences of 'disabled' — there should be at least 2 (id + createdAt)
+      const disabledMatches = html.match(/disabled/g)
+      expect(disabledMatches).toBeTruthy()
+      expect(disabledMatches!.length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('renders editable fields without disabled attribute', () => {
+      const html = formView({
+        resource: makeResource(),
+        columns,
+        record: { id: 1, title: 'Test', createdAt: '2024-01-15T10:30' },
+        csrfToken: 'token',
+      })
+      // Find the title input specifically and verify it's not disabled
+      // The title input should use the normal input style, not inputDisabled
+      expect(html).toContain('name="title"')
+      // Extract the title input segment
+      const titleInputMatch = html.match(/<input[^>]*name="title"[^>]*>/)
+      expect(titleInputMatch).toBeTruthy()
+      expect(titleInputMatch![0]).not.toContain('disabled')
+    })
+  })
+
+  it('permitParams does not hide auto-managed disabled fields on edit', () => {
+    const html = formView({
+      resource: makeResource({ options: { permitParams: ['title'] } }),
+      columns: [
+        makeColumn({ name: 'id', isPrimaryKey: true }),
+        makeColumn({ name: 'title' }),
+        makeColumn({ name: 'body' }),
+        makeColumn({ name: 'createdAt', dataType: 'timestamp', hasDefault: true }),
+      ],
+      record: { id: 1, title: 'Test', body: 'Content', createdAt: '2024-01-15T10:30' },
+      csrfToken: 'token',
+    })
+    // id and createdAt should still appear as disabled even with permitParams
+    expect(html).toContain('name="id"')
+    expect(html).toContain('name="createdAt"')
+    // title is permitted
+    expect(html).toContain('name="title"')
+    // body is NOT permitted
+    expect(html).not.toContain('name="body"')
+  })
+
+  it('respects permitParams option on create', () => {
     const html = formView({
       resource: makeResource({ options: { permitParams: ['title'] } }),
       columns: [
