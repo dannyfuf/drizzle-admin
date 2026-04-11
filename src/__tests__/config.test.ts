@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { defineConfig } from '@/config.ts'
+import type { Table } from 'drizzle-orm'
+import type { AnyPgDatabase } from '@/types.ts'
 
 describe('defineConfig', () => {
   it('returns the exact same config object passed in', () => {
     const config = {
-      db: {},
+      db: {} as AnyPgDatabase,
       dialect: 'postgresql' as const,
-      adminUsers: { id: {}, email: {}, passwordHash: {}, createdAt: {}, updatedAt: {} },
+      adminUsers: { id: {}, email: {}, passwordHash: {}, createdAt: {}, updatedAt: {} } as unknown as Table,
       sessionSecret: 'secret',
       resourcesDir: './resources',
     }
@@ -16,9 +18,9 @@ describe('defineConfig', () => {
 
   it('preserves all config properties', () => {
     const config = {
-      db: { fake: true },
+      db: { fake: true } as unknown as AnyPgDatabase,
       dialect: 'postgresql' as const,
-      adminUsers: { id: {}, email: {}, passwordHash: {}, createdAt: {}, updatedAt: {} },
+      adminUsers: { id: {}, email: {}, passwordHash: {}, createdAt: {}, updatedAt: {} } as unknown as Table,
       sessionSecret: 'my-secret',
       resourcesDir: '/path/to/resources',
       port: 4000,

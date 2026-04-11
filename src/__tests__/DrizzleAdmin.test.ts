@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
+import type { Table } from 'drizzle-orm'
+import type { AnyPgDatabase } from '@/types.ts'
+import type { DrizzleAdminConfig } from '@/config.ts'
 
 vi.mock('drizzle-orm', () => ({
-  getTableColumns: (table: any) => table._columns ?? {},
+  getTableColumns: (table: Record<string, unknown>) => (table as Record<string, unknown>)._columns ?? {},
   eq: () => {},
 }))
 
@@ -36,11 +39,11 @@ function makeAdminUsers() {
   }
 }
 
-function makeConfig(overrides: Record<string, unknown> = {}) {
+function makeConfig(overrides: Partial<DrizzleAdminConfig> = {}): DrizzleAdminConfig {
   return {
-    db: {},
-    dialect: 'postgresql' as const,
-    adminUsers: makeAdminUsers(),
+    db: {} as AnyPgDatabase,
+    dialect: 'postgresql',
+    adminUsers: makeAdminUsers() as unknown as Table,
     sessionSecret: 'test-secret',
     resourcesDir: './resources',
     ...overrides,
@@ -68,7 +71,7 @@ describe('DrizzleAdmin', () => {
       id: {},
     }
     expect(() => {
-      new DrizzleAdmin(makeConfig({ adminUsers: badAdminUsers }))
+      new DrizzleAdmin(makeConfig({ adminUsers: badAdminUsers as unknown as Table }))
     }).toThrow()
   })
 

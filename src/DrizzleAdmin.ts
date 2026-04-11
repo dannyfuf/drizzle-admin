@@ -1,15 +1,19 @@
-import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
-import type { DrizzleAdminConfig, MinimalAdminUsersTable } from '@/config.ts'
-import { validateAdminUsersTable } from '@/auth/contract.ts'
-import { postgresqlAdapter } from '@/dialects/postgresql.ts'
-import { loadResources, validateResources } from '@/resources/loader.ts'
-import type { ResourceDefinition } from '@/resources/types.ts'
-import { createAuthRoutes } from '@/routes/auth.ts'
-import { createCrudRoutes } from '@/routes/crud.ts'
-import { authMiddleware } from '@/auth/middleware.ts'
-import { loginPage } from '@/views/login.ts'
-import { hashPassword } from '@/auth/password.ts'
+import { Hono } from "hono";
+import { eq } from "drizzle-orm";
+import type { Table } from "drizzle-orm";
+import type { PgColumn, PgTable, TableConfig } from "drizzle-orm/pg-core";
+import type { DrizzleAdminConfig } from "@/config.ts";
+import { validateAdminUsersTable } from "@/auth/contract.ts";
+import { postgresqlAdapter } from "@/dialects/postgresql.ts";
+import { loadResources, validateResources } from "@/resources/loader.ts";
+import type { ResourceDefinition } from "@/resources/types.ts";
+import { createAuthRoutes } from "@/routes/auth.ts";
+import { createCrudRoutes } from "@/routes/crud.ts";
+import { authMiddleware } from "@/auth/middleware.ts";
+import { loginPage } from "@/views/login.ts";
+import { hashPassword } from "@/auth/password.ts";
+
+type PgTableWithColumns = PgTable<TableConfig> & Record<string, PgColumn>;
 
 /**
  * The main admin panel class that sets up routes, authentication, and CRUD
@@ -29,74 +33,74 @@ import { hashPassword } from '@/auth/password.ts'
  * await admin.start();
  * ```
  */
-export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
-  private config: DrizzleAdminConfig<T>
-  private app: Hono
-  private resources: ResourceDefinition[] = []
+export class DrizzleAdmin {
+  private config: DrizzleAdminConfig;
+  private app: Hono;
+  private resources: ResourceDefinition[] = [];
 
   /** Creates a new DrizzleAdmin instance with the given configuration. */
-  constructor(config: DrizzleAdminConfig<T>) {
-    this.config = config
-    this.app = new Hono()
+  constructor(config: DrizzleAdminConfig) {
+    this.config = config;
+    this.app = new Hono();
 
-    validateAdminUsersTable(config.adminUsers)
+    validateAdminUsersTable(config.adminUsers);
 
-    if (config.dialect !== 'postgresql') {
-      throw new Error(`Dialect "${config.dialect}" is not yet supported`)
+    if (config.dialect !== "postgresql") {
+      throw new Error(`Dialect "${config.dialect}" is not yet supported`);
     }
   }
 
   /** Loads resource definitions from the configured `resourcesDir` and validates them. */
   async initialize(): Promise<void> {
-    const { resources, errors } = await loadResources(this.config.resourcesDir)
+    const { resources, errors } = await loadResources(this.config.resourcesDir);
 
     if (errors.length > 0) {
       for (const error of errors) {
-        console.error(`[DrizzleAdmin] ${error}`)
+        console.error(`[DrizzleAdmin] ${error}`);
       }
       throw new Error(
-        `Failed to load resources. ${errors.length} error(s) found.`
-      )
+        `Failed to load resources. ${errors.length} error(s) found.`,
+      );
     }
 
-    const validationErrors = validateResources(resources)
+    const validationErrors = validateResources(resources);
     if (validationErrors.length > 0) {
       for (const error of validationErrors) {
-        console.error(`[DrizzleAdmin] ${error}`)
+        console.error(`[DrizzleAdmin] ${error}`);
       }
       throw new Error(
-        `Invalid resource configuration. ${validationErrors.length} error(s) found.`
-      )
+        `Invalid resource configuration. ${validationErrors.length} error(s) found.`,
+      );
     }
 
-    this.resources = resources
-    console.log(`[DrizzleAdmin] Loaded ${resources.length} resource(s)`)
+    this.resources = resources;
+    console.log(`[DrizzleAdmin] Loaded ${resources.length} resource(s)`);
   }
 
   /** Returns the loaded resource definitions. */
   getResources(): ResourceDefinition[] {
-    return this.resources
+    return this.resources;
   }
 
   private setupRoutes(): void {
-    const adapter = postgresqlAdapter
+    const adapter = postgresqlAdapter;
 
     const authRoutes = createAuthRoutes({
       db: this.config.db,
       adminUsers: this.config.adminUsers,
       sessionSecret: this.config.sessionSecret,
       renderLogin: (props) => loginPage(props),
-    })
-    this.app.route('/', authRoutes)
+    });
+    this.app.route("/", authRoutes);
 
-    this.app.use('/*', authMiddleware(this.config.sessionSecret))
+    this.app.use("/*", authMiddleware(this.config.sessionSecret));
 
-    this.app.get('/', (c) => {
+    this.app.get("/", (c) => {
       if (this.resources.length === 0) {
-        return c.text('No resources configured')
+        return c.text("No resources configured");
       }
-      return c.redirect(`/${this.resources[0].routePath}`)
-    })
+      return c.redirect(`/${this.resources[0].routePath}`);
+    });
 
     for (const resource of this.resources) {
       const crudRoutes = createCrudRoutes({
@@ -105,8 +109,8 @@ export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
         adapter,
         sessionSecret: this.config.sessionSecret,
         allResources: this.resources,
-      })
-      this.app.route(`/${resource.routePath}`, crudRoutes)
+      });
+      this.app.route(`/${resource.routePath}`, crudRoutes);
     }
   }
 
@@ -115,23 +119,25 @@ export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
    *
    * @param params - Must include `email` and `password`. Additional fields are passed through to the insert.
    */
-  async seed(params: { email: string; password: string } & Record<string, unknown>): Promise<void> {
-    const { email, password, ...extra } = params
-    const db = this.config.db as any
-    const adminUsers = this.config.adminUsers as any
+  async seed(
+    params: { email: string; password: string } & Record<string, unknown>,
+  ): Promise<void> {
+    const { email, password, ...extra } = params;
+    const db = this.config.db;
+    const adminUsers = this.config.adminUsers as PgTableWithColumns;
 
     const [existing] = await db
       .select()
       .from(adminUsers)
       .where(eq(adminUsers.email, email))
-      .limit(1)
+      .limit(1);
 
     if (existing) {
-      console.log(`Admin user "${email}" already exists, skipping seed.`)
-      return
+      console.log(`Admin user "${email}" already exists, skipping seed.`);
+      return;
     }
 
-    const passwordHash = await hashPassword(password)
+    const passwordHash = await hashPassword(password);
 
     await db.insert(adminUsers).values({
       email,
@@ -139,32 +145,34 @@ export class DrizzleAdmin<T extends MinimalAdminUsersTable> {
       createdAt: new Date(),
       updatedAt: new Date(),
       ...extra,
-    })
+    } as Record<string, unknown>);
 
-    console.log(`Created admin user: ${email}`)
+    console.log(`Created admin user: ${email}`);
   }
 
   /** Returns the underlying Hono app instance for custom route mounting. */
   getApp(): Hono {
-    return this.app
+    return this.app;
   }
 
   /** Initializes resources, sets up routes, and starts the HTTP server. */
   async start(): Promise<void> {
-    await this.initialize()
-    this.setupRoutes()
+    await this.initialize();
+    this.setupRoutes();
 
-    const port = this.config.port ?? 3001
-    console.log(`DrizzleAdmin running on http://localhost:${port}`)
+    const port = this.config.port ?? 3001;
+    console.log(`DrizzleAdmin running on http://localhost:${port}`);
 
-    if (typeof (globalThis as any).Deno !== 'undefined') {
-      ;(globalThis as any).Deno.serve({ port }, this.app.fetch)
+    const g = globalThis as Record<string, unknown>;
+    if (typeof g.Deno !== "undefined") {
+      const deno = g.Deno as { serve: (opts: { port: number }, handler: unknown) => void };
+      deno.serve({ port }, this.app.fetch);
     } else {
-      const { serve } = await import('@hono/node-server')
+      const { serve } = await import("@hono/node-server");
       serve({
         fetch: this.app.fetch,
         port,
-      })
+      });
     }
   }
 }
