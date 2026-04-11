@@ -12,6 +12,7 @@ import { createCrudRoutes } from "@/routes/crud.ts";
 import { authMiddleware } from "@/auth/middleware.ts";
 import { loginPage } from "@/views/login.ts";
 import { hashPassword } from "@/auth/password.ts";
+import { adminUrl } from "@/utils/url.ts";
 
 type PgTableWithColumns = PgTable<TableConfig> & Record<string, PgColumn>;
 
@@ -33,15 +34,27 @@ type PgTableWithColumns = PgTable<TableConfig> & Record<string, PgColumn>;
  * await admin.start();
  * ```
  */
+export interface DrizzleAdminHandler {
+  /** The internal Hono app — use with mainApp.route('/path', handler.app) */
+  app: Hono;
+  /** Standard Web fetch handler — (request: Request) => Response | Promise<Response> */
+  fetch: (request: Request) => Response | Promise<Response>;
+}
+
 export class DrizzleAdmin {
   private config: DrizzleAdminConfig;
   private app: Hono;
   private resources: ResourceDefinition[] = [];
+  private basePath: string;
 
   /** Creates a new DrizzleAdmin instance with the given configuration. */
   constructor(config: DrizzleAdminConfig) {
     this.config = config;
     this.app = new Hono();
+
+    // Normalize basePath: strip trailing slash, keep leading slash (or empty)
+    const raw = config.basePath ?? '';
+    this.basePath = raw.endsWith('/') ? raw.slice(0, -1) : raw;
 
     validateAdminUsersTable(config.adminUsers);
 
@@ -89,17 +102,18 @@ export class DrizzleAdmin {
       db: this.config.db,
       adminUsers: this.config.adminUsers,
       sessionSecret: this.config.sessionSecret,
+      basePath: this.basePath,
       renderLogin: (props) => loginPage(props),
     });
     this.app.route("/", authRoutes);
 
-    this.app.use("/*", authMiddleware(this.config.sessionSecret));
+    this.app.use("/*", authMiddleware(this.config.sessionSecret, this.basePath));
 
     this.app.get("/", (c) => {
       if (this.resources.length === 0) {
         return c.text("No resources configured");
       }
-      return c.redirect(`/${this.resources[0].routePath}`);
+      return c.redirect(adminUrl(this.basePath, `/${this.resources[0].routePath}`));
     });
 
     for (const resource of this.resources) {
@@ -109,6 +123,7 @@ export class DrizzleAdmin {
         adapter,
         sessionSecret: this.config.sessionSecret,
         allResources: this.resources,
+        basePath: this.basePath,
       });
       this.app.route(`/${resource.routePath}`, crudRoutes);
     }
@@ -155,10 +170,24 @@ export class DrizzleAdmin {
     return this.app;
   }
 
-  /** Initializes resources, sets up routes, and starts the HTTP server. */
-  async start(): Promise<void> {
+  /**
+   * Builds the admin panel without starting a server.
+   * Returns a handler object that can be mounted into an existing application
+   * via the Hono or Express adapters, or used directly with its `fetch` method.
+   */
+  async build(): Promise<DrizzleAdminHandler> {
     await this.initialize();
     this.setupRoutes();
+
+    return {
+      app: this.app,
+      fetch: this.app.fetch,
+    };
+  }
+
+  /** Initializes resources, sets up routes, and starts the HTTP server. */
+  async start(): Promise<void> {
+    const handler = await this.build();
 
     const port = this.config.port ?? 3001;
     console.log(`DrizzleAdmin running on http://localhost:${port}`);
@@ -166,11 +195,11 @@ export class DrizzleAdmin {
     const g = globalThis as Record<string, unknown>;
     if (typeof g.Deno !== "undefined") {
       const deno = g.Deno as { serve: (opts: { port: number }, handler: unknown) => void };
-      deno.serve({ port }, this.app.fetch);
+      deno.serve({ port }, handler.fetch);
     } else {
       const { serve } = await import("@hono/node-server");
       serve({
-        fetch: this.app.fetch,
+        fetch: handler.fetch,
         port,
       });
     }

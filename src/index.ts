@@ -25,6 +25,7 @@ export { defineConfig } from '@/config.ts'
 export { defineResource } from '@/resources/define.ts'
 export { hashPassword } from '@/auth/password.ts'
 
+export type { DrizzleAdminHandler } from '@/DrizzleAdmin.ts'
 export type { DrizzleAdminConfig } from '@/config.ts'
 export type { AnyPgDatabase, AnyTable } from '@/types.ts'
 export type {
