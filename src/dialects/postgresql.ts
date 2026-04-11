@@ -1,35 +1,35 @@
-import { getTableColumns } from 'drizzle-orm'
+import { getTableColumns, type Column, type Table } from 'drizzle-orm'
 import type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'
 
 export const postgresqlAdapter: DialectAdapter = {
   name: 'postgresql',
 
-  extractColumns(table: unknown): ColumnMeta[] {
-    const columns = getTableColumns(table as any)
+  extractColumns(table: Table): ColumnMeta[] {
+    const columns = getTableColumns(table)
 
     return Object.entries(columns).map(([name, column]) => ({
       name,
-      sqlName: (column as any).name,
+      sqlName: column.name,
       dataType: mapPgType(column),
-      isNullable: !(column as any).notNull,
-      isPrimaryKey: (column as any).primaryKey ?? false,
-      hasDefault: (column as any).hasDefault ?? false,
+      isNullable: !column.notNull,
+      isPrimaryKey: column.primary,
+      hasDefault: column.hasDefault,
       enumValues: extractEnumValues(column),
     }))
   },
 }
 
-function mapPgType(column: any): string {
+function mapPgType(column: Column): string {
   const type = column.dataType
-  if (type === 'string' || type === 'text' || type === 'varchar') return 'text'
-  if (type === 'number' || type === 'integer' || type === 'serial') return 'integer'
+  if (type === 'string') return 'text'
+  if (type === 'number' || type === 'bigint') return 'integer'
   if (type === 'boolean') return 'boolean'
-  if (type === 'date' || type === 'timestamp') return 'timestamp'
-  if (type === 'json' || type === 'jsonb') return 'json'
+  if (type === 'date') return 'timestamp'
+  if (type === 'json') return 'json'
   if (column.enumValues) return 'enum'
   return 'text'
 }
 
-function extractEnumValues(column: any): string[] | undefined {
+function extractEnumValues(column: Column): string[] | undefined {
   return column.enumValues ?? undefined
 }

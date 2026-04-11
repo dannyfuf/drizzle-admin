@@ -1,13 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
+import type { Table } from 'drizzle-orm'
 
 vi.mock('drizzle-orm', () => ({
-  getTableColumns: (table: any) => table._columns,
+  getTableColumns: (table: Record<string, unknown>) => (table as Record<string, unknown>)._columns,
 }))
 
 import { postgresqlAdapter } from '@/dialects/postgresql.ts'
 
-function makeTable(columns: Record<string, any>) {
-  return { _columns: columns }
+function makeTable(columns: Record<string, unknown>): Table {
+  return { _columns: columns } as unknown as Table
 }
 
 function makeColumn(overrides: Record<string, unknown> = {}) {
@@ -15,7 +16,7 @@ function makeColumn(overrides: Record<string, unknown> = {}) {
     name: 'col',
     dataType: 'string',
     notNull: true,
-    primaryKey: false,
+    primary: false,
     hasDefault: false,
     ...overrides,
   }
@@ -94,7 +95,7 @@ describe('postgresqlAdapter', () => {
     })
 
     it('sets isPrimaryKey from column', () => {
-      const table = makeTable({ id: makeColumn({ name: 'id', primaryKey: true }) })
+      const table = makeTable({ id: makeColumn({ name: 'id', primary: true }) })
       const columns = postgresqlAdapter.extractColumns(table)
       expect(columns[0].isPrimaryKey).toBe(true)
     })
