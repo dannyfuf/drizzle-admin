@@ -18,7 +18,10 @@
  */
 
 import type { Context } from 'hono'
+import type { Table } from 'drizzle-orm'
 import { getTableName } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
+import type { AnyPgDatabase } from '@/types.ts'
 import type { CollectionAction } from '@/resources/types.ts'
 
 /**
@@ -31,12 +34,13 @@ import type { CollectionAction } from '@/resources/types.ts'
  * @param table - A Drizzle ORM table object to export records from.
  * @returns A {@link CollectionAction} that triggers a CSV file download.
  */
-export function createCsvExportAction(table: unknown): CollectionAction {
+export function createCsvExportAction(table: Table): CollectionAction {
   return {
     name: 'Export CSV',
-    handler: async (c: Context, db: any) => {
-      const tableName = getTableName(table as any)
-      const records = await db.select().from(table as any)
+    handler: async (_c: Context, db: AnyPgDatabase) => {
+      const tableName = getTableName(table)
+      const pgTable = table as PgTable
+      const records: Record<string, unknown>[] = await db.select().from(pgTable)
 
       if (records.length === 0) {
         return new Response('No records to export', {
@@ -45,8 +49,8 @@ export function createCsvExportAction(table: unknown): CollectionAction {
         })
       }
 
-      const headers = Object.keys(records[0])
-      const rows = records.map((r: any) =>
+      const headers = Object.keys(records[0]!)
+      const rows = records.map((r) =>
         headers.map(h => escapeCSV(r[h])).join(',')
       )
       const csv = [headers.join(','), ...rows].join('\n')

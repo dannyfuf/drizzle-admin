@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
+import type { Table } from 'drizzle-orm'
+import type { AnyPgDatabase } from '@/types.ts'
+import type { Context } from 'hono'
 
 vi.mock('drizzle-orm', () => ({
   getTableName: () => 'test_table',
@@ -6,14 +9,14 @@ vi.mock('drizzle-orm', () => ({
 
 import { createCsvExportAction } from '@/actions/csv.ts'
 
-const fakeTable = { _name: 'test_table' }
+const fakeTable = { _name: 'test_table' } as unknown as Table
 
-function makeMockDb(records: Record<string, unknown>[]) {
+function makeMockDb(records: Record<string, unknown>[]): AnyPgDatabase {
   return {
     select: () => ({
       from: () => Promise.resolve(records),
     }),
-  }
+  } as unknown as AnyPgDatabase
 }
 
 describe('createCsvExportAction', () => {
@@ -25,7 +28,7 @@ describe('createCsvExportAction', () => {
   it('returns plain text response when no records exist', async () => {
     const action = createCsvExportAction(fakeTable)
     const db = makeMockDb([])
-    const response = await action.handler({} as any, db) as Response
+    const response = await action.handler({} as unknown as Context, db) as Response
 
     expect(response.status).toBe(200)
     expect(response.headers.get('Content-Type')).toBe('text/plain')
@@ -38,7 +41,7 @@ describe('createCsvExportAction', () => {
       { id: 1, name: 'Alice', email: 'alice@test.com' },
       { id: 2, name: 'Bob', email: 'bob@test.com' },
     ])
-    const response = await action.handler({} as any, db) as Response
+    const response = await action.handler({} as unknown as Context, db) as Response
     const csv = await response.text()
 
     const lines = csv.split('\n')
@@ -50,7 +53,7 @@ describe('createCsvExportAction', () => {
   it('sets Content-Type to text/csv', async () => {
     const action = createCsvExportAction(fakeTable)
     const db = makeMockDb([{ id: 1 }])
-    const response = await action.handler({} as any, db) as Response
+    const response = await action.handler({} as unknown as Context, db) as Response
 
     expect(response.headers.get('Content-Type')).toBe('text/csv')
   })
@@ -58,7 +61,7 @@ describe('createCsvExportAction', () => {
   it('sets Content-Disposition header with table name', async () => {
     const action = createCsvExportAction(fakeTable)
     const db = makeMockDb([{ id: 1 }])
-    const response = await action.handler({} as any, db) as Response
+    const response = await action.handler({} as unknown as Context, db) as Response
 
     expect(response.headers.get('Content-Disposition')).toBe(
       'attachment; filename="test_table.csv"'
@@ -68,7 +71,7 @@ describe('createCsvExportAction', () => {
   it('escapes values containing commas', async () => {
     const action = createCsvExportAction(fakeTable)
     const db = makeMockDb([{ name: 'Smith, John' }])
-    const response = await action.handler({} as any, db) as Response
+    const response = await action.handler({} as unknown as Context, db) as Response
     const csv = await response.text()
 
     expect(csv).toContain('"Smith, John"')
@@ -77,7 +80,7 @@ describe('createCsvExportAction', () => {
   it('escapes values containing double quotes', async () => {
     const action = createCsvExportAction(fakeTable)
     const db = makeMockDb([{ name: 'He said "hello"' }])
-    const response = await action.handler({} as any, db) as Response
+    const response = await action.handler({} as unknown as Context, db) as Response
     const csv = await response.text()
 
     expect(csv).toContain('"He said ""hello"""')
@@ -86,7 +89,7 @@ describe('createCsvExportAction', () => {
   it('escapes values containing newlines', async () => {
     const action = createCsvExportAction(fakeTable)
     const db = makeMockDb([{ bio: 'line1\nline2' }])
-    const response = await action.handler({} as any, db) as Response
+    const response = await action.handler({} as unknown as Context, db) as Response
     const csv = await response.text()
 
     expect(csv).toContain('"line1\nline2"')
@@ -95,7 +98,7 @@ describe('createCsvExportAction', () => {
   it('handles null and undefined values as empty strings', async () => {
     const action = createCsvExportAction(fakeTable)
     const db = makeMockDb([{ a: null, b: undefined }])
-    const response = await action.handler({} as any, db) as Response
+    const response = await action.handler({} as unknown as Context, db) as Response
     const csv = await response.text()
 
     const lines = csv.split('\n')
