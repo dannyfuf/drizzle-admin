@@ -1,9 +1,9 @@
-import type { ResourceDefinition } from '../resources/types.js'
-import type { AdminTokenPayload } from '../auth/jwt.js'
-import type { FlashMessage } from '../utils/flash.js'
-import { styles, tailwindScript } from './styles.js'
-import { renderFlash, escapeHtml } from './components/flash.js'
-import { modalScript } from './components/modal.js'
+import type { ResourceDefinition } from '@/resources/types.ts'
+import type { AdminTokenPayload } from '@/auth/jwt.ts'
+import type { FlashMessage } from '@/utils/flash.ts'
+import { styles, tailwindScript } from '@/views/styles.ts'
+import { renderFlash, escapeHtml } from '@/views/components/flash.ts'
+import { modalScript } from '@/views/components/modal.ts'
 
 export interface LayoutProps {
   title: string

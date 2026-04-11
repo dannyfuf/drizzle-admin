@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
-import { verifyPassword } from '../auth/password.js'
-import { createToken } from '../auth/jwt.js'
-import { setAuthCookie, clearAuthCookie } from '../auth/middleware.js'
-import { setCsrfCookie, validateCsrf } from '../auth/csrf.js'
+import { verifyPassword } from '@/auth/password.ts'
+import { createToken } from '@/auth/jwt.ts'
+import { setAuthCookie, clearAuthCookie } from '@/auth/middleware.ts'
+import { setCsrfCookie, validateCsrf } from '@/auth/csrf.ts'
 
 interface AuthRoutesConfig {
   db: any

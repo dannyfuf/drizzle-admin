@@ -1,5 +1,5 @@
-import { styles } from '../styles.js'
-import { escapeHtml } from './flash.js'
+import { styles } from '@/views/styles.ts'
+import { escapeHtml } from '@/views/components/flash.ts'
 
 let modalId = 0
 

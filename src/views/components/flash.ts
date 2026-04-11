@@ -1,5 +1,5 @@
-import type { FlashMessage } from '../../utils/flash.js'
-import { styles } from '../styles.js'
+import type { FlashMessage } from '@/utils/flash.ts'
+import { styles } from '@/views/styles.ts'
 
 export function renderFlash(flash: FlashMessage | null): string {
   if (!flash) return ''

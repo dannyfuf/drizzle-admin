@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import { getCookie, setCookie } from 'hono/cookie'
-import { createToken, verifyToken } from './jwt.js'
+import { createToken, verifyToken } from '@/auth/jwt.ts'
 
 const CSRF_COOKIE_NAME = '_csrf'
 const CSRF_FIELD_NAME = '_csrf'

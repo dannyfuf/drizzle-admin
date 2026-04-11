@@ -1,6 +1,6 @@
 import type { Context, Next } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import { AdminTokenPayload, verifyToken } from "./jwt.js";
+import { AdminTokenPayload, verifyToken } from "@/auth/jwt.ts";
 
 const AUTH_COOKIE_NAME = "admin_session";
 const LOGIN_PATH = "/login";

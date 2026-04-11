@@ -1,4 +1,4 @@
-import type { ResourceOptions } from './types.js'
+import type { ResourceOptions } from '@/resources/types.ts'
 
 /** The object returned by {@link defineResource}, used internally by the resource loader. */
 export interface ResourceExport {

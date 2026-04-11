@@ -2,9 +2,9 @@ import { readdir } from 'node:fs/promises'
 import { join, resolve, extname } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { getTableName } from 'drizzle-orm'
-import { isResourceExport } from './define.js'
-import type { ResourceDefinition } from './types.js'
-import { tableNameToRoutePath, tableNameToDisplayName } from '../utils/table.js'
+import { isResourceExport } from '@/resources/define.ts'
+import type { ResourceDefinition } from '@/resources/types.ts'
+import { tableNameToRoutePath, tableNameToDisplayName } from '@/utils/table.ts'
 
 export interface LoadResourcesResult {
   resources: ResourceDefinition[]

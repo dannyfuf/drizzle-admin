@@ -19,7 +19,7 @@
 
 import type { Context } from 'hono'
 import { getTableName } from 'drizzle-orm'
-import type { CollectionAction } from '../resources/types.js'
+import type { CollectionAction } from '@/resources/types.ts'
 
 /**
  * Creates a collection action that exports all records from a Drizzle table as CSV.

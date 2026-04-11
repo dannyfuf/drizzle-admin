@@ -1,9 +1,9 @@
-import type { ColumnMeta } from '../dialects/types.js'
-import type { ResourceDefinition } from '../resources/types.js'
-import { styles } from './styles.js'
-import { renderField } from './components/field.js'
-import { button, linkButton } from './components/button.js'
-import { csrfInput } from '../auth/csrf.js'
+import type { ColumnMeta } from '@/dialects/types.ts'
+import type { ResourceDefinition } from '@/resources/types.ts'
+import { styles } from '@/views/styles.ts'
+import { renderField } from '@/views/components/field.ts'
+import { button, linkButton } from '@/views/components/button.ts'
+import { csrfInput } from '@/auth/csrf.ts'
 
 export interface FormViewProps {
   resource: ResourceDefinition
@@ -64,7 +64,7 @@ export function formView(props: FormViewProps): string {
   `
 }
 
-function isAutoManaged(column: ColumnMeta): boolean {
+export function isAutoManaged(column: ColumnMeta): boolean {
   if (column.isPrimaryKey) return true
   if (['createdAt', 'created_at', 'updatedAt', 'updated_at'].includes(column.name)) {
     return column.hasDefault

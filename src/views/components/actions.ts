@@ -1,7 +1,7 @@
-import type { ResourceDefinition } from '../../resources/types.js'
-import { confirmModal, modalTrigger } from './modal.js'
-import { escapeHtml } from './flash.js'
-import { styles } from '../styles.js'
+import type { ResourceDefinition } from '@/resources/types.ts'
+import { confirmModal, modalTrigger } from '@/views/components/modal.ts'
+import { escapeHtml } from '@/views/components/flash.ts'
+import { styles } from '@/views/styles.ts'
 
 export interface MemberActionsProps {
   resource: ResourceDefinition

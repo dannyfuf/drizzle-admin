@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
-import type { ResourceDefinition, MemberAction, CollectionAction } from '../resources/types.js'
-import { validateCsrf } from '../auth/csrf.js'
-import { setFlash } from '../utils/flash.js'
-import { slugify } from '../views/components/actions.js'
+import type { ResourceDefinition, MemberAction, CollectionAction } from '@/resources/types.ts'
+import { validateCsrf } from '@/auth/csrf.ts'
+import { setFlash } from '@/utils/flash.ts'
+import { slugify } from '@/views/components/actions.ts'
 
 interface ActionRoutesConfig {
   db: any

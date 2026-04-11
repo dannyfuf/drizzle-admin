@@ -1,6 +1,6 @@
-import { styles, tailwindScript } from './styles.js'
-import { escapeHtml } from './components/flash.js'
-import { csrfInput } from '../auth/csrf.js'
+import { styles, tailwindScript } from '@/views/styles.ts'
+import { escapeHtml } from '@/views/components/flash.ts'
+import { csrfInput } from '@/auth/csrf.ts'
 
 export interface LoginProps {
   csrfToken: string

@@ -1,10 +1,10 @@
-import type { ColumnMeta } from '../dialects/types.js'
-import type { ResourceDefinition } from '../resources/types.js'
-import { styles } from './styles.js'
-import { escapeHtml } from './components/flash.js'
-import { linkButton } from './components/button.js'
-import { renderMemberActions } from './components/actions.js'
-import { confirmModal, modalTrigger } from './components/modal.js'
+import type { ColumnMeta } from '@/dialects/types.ts'
+import type { ResourceDefinition } from '@/resources/types.ts'
+import { styles } from '@/views/styles.ts'
+import { escapeHtml } from '@/views/components/flash.ts'
+import { linkButton } from '@/views/components/button.ts'
+import { renderMemberActions } from '@/views/components/actions.ts'
+import { confirmModal, modalTrigger } from '@/views/components/modal.ts'
 
 export interface ShowViewProps {
   resource: ResourceDefinition
@@ -92,7 +92,7 @@ function formatColumnHeader(name: string): string {
     .trim()
 }
 
-function formatShowValue(value: unknown, column: ColumnMeta): string {
+export function formatShowValue(value: unknown, column: ColumnMeta): string {
   if (value === null || value === undefined) {
     return `<span class="${styles.textMuted}">—</span>`
   }

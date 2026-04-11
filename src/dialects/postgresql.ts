@@ -1,5 +1,5 @@
 import { getTableColumns } from 'drizzle-orm'
-import type { ColumnMeta, DialectAdapter } from './types.js'
+import type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'
 
 export const postgresqlAdapter: DialectAdapter = {
   name: 'postgresql',

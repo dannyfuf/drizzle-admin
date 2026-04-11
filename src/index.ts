@@ -20,11 +20,15 @@
  * ```
  */
 
-export { DrizzleAdmin } from './DrizzleAdmin.js'
-export { defineConfig } from './config.js'
-export { defineResource } from './resources/define.js'
-export { hashPassword } from './auth/password.js'
+export { DrizzleAdmin } from '@/DrizzleAdmin.ts'
+export { defineConfig } from '@/config.ts'
+export { defineResource } from '@/resources/define.ts'
+export { hashPassword } from '@/auth/password.ts'
 
-export type { DrizzleAdminConfig, MinimalAdminUsersTable } from './config.js'
-export type { ResourceOptions, MemberAction, CollectionAction } from './resources/types.js'
-export type { ColumnMeta, DialectAdapter } from './dialects/types.js'
+export type { DrizzleAdminConfig, MinimalAdminUsersTable } from '@/config.ts'
+export type {
+  CollectionAction,
+  MemberAction,
+  ResourceOptions,
+} from '@/resources/types.ts'
+export type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'

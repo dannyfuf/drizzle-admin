@@ -1,15 +1,15 @@
 import { Hono } from 'hono'
 import { eq, sql } from 'drizzle-orm'
-import type { ResourceDefinition } from '../resources/types.js'
-import type { ColumnMeta, DialectAdapter } from '../dialects/types.js'
-import { setFlash, getFlash } from '../utils/flash.js'
-import { setCsrfCookie, validateCsrf } from '../auth/csrf.js'
-import { layout } from '../views/layout.js'
-import { indexView } from '../views/index.js'
-import { showView } from '../views/show.js'
-import { formView } from '../views/form.js'
-import { createActionRoutes } from './actions.js'
-import { getAdmin } from '../auth/middleware.js'
+import type { ResourceDefinition } from '@/resources/types.ts'
+import type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'
+import { setFlash, getFlash } from '@/utils/flash.ts'
+import { setCsrfCookie, validateCsrf } from '@/auth/csrf.ts'
+import { layout } from '@/views/layout.ts'
+import { indexView } from '@/views/index.ts'
+import { showView } from '@/views/show.ts'
+import { formView } from '@/views/form.ts'
+import { createActionRoutes } from '@/routes/actions.ts'
+import { getAdmin } from '@/auth/middleware.ts'
 
 interface CrudRoutesConfig {
   db: any
@@ -214,7 +214,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   return app
 }
 
-function parseFormValues(body: Record<string, any>, columns: ColumnMeta[], permitParams?: string[]): Record<string, any> {
+export function parseFormValues(body: Record<string, any>, columns: ColumnMeta[], permitParams?: string[]): Record<string, any> {
   const values: Record<string, any> = {}
 
   for (const col of columns) {
@@ -244,7 +244,7 @@ function parseFormValues(body: Record<string, any>, columns: ColumnMeta[], permi
   return values
 }
 
-function render404(resource: ResourceDefinition): string {
+export function render404(resource: ResourceDefinition): string {
   return `
     <div class="text-center py-12">
       <h2 class="text-xl font-semibold text-zinc-100">Not Found</h2>

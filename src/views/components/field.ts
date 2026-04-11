@@ -1,6 +1,6 @@
-import type { ColumnMeta } from '../../dialects/types.js'
-import { styles } from '../styles.js'
-import { escapeHtml } from './flash.js'
+import type { ColumnMeta } from '@/dialects/types.ts'
+import { styles } from '@/views/styles.ts'
+import { escapeHtml } from '@/views/components/flash.ts'
 
 export interface FieldProps {
   column: ColumnMeta

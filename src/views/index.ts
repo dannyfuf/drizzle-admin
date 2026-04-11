@@ -1,10 +1,10 @@
-import type { ColumnMeta } from '../dialects/types.js'
-import type { ResourceDefinition } from '../resources/types.js'
-import { styles } from './styles.js'
-import { escapeHtml } from './components/flash.js'
-import { renderPagination, PaginationProps } from './components/pagination.js'
-import { linkButton } from './components/button.js'
-import { renderCollectionActions } from './components/actions.js'
+import type { ColumnMeta } from '@/dialects/types.ts'
+import type { ResourceDefinition } from '@/resources/types.ts'
+import { styles } from '@/views/styles.ts'
+import { escapeHtml } from '@/views/components/flash.ts'
+import { renderPagination, PaginationProps } from '@/views/components/pagination.ts'
+import { linkButton } from '@/views/components/button.ts'
+import { renderCollectionActions } from '@/views/components/actions.ts'
 
 export interface IndexViewProps {
   resource: ResourceDefinition
@@ -75,7 +75,7 @@ export function indexView(props: IndexViewProps): string {
   `
 }
 
-function getVisibleColumns(columns: ColumnMeta[], config?: { columns?: string[]; exclude?: string[] }): ColumnMeta[] {
+export function getVisibleColumns(columns: ColumnMeta[], config?: { columns?: string[]; exclude?: string[] }): ColumnMeta[] {
   let result = columns
 
   result = result.filter(col => !isPasswordColumn(col))
@@ -93,7 +93,7 @@ function isPasswordColumn(col: ColumnMeta): boolean {
   return col.name.toLowerCase().includes('password')
 }
 
-function formatColumnHeader(name: string): string {
+export function formatColumnHeader(name: string): string {
   return name
     .replace(/([A-Z])/g, ' $1')
     .replace(/_/g, ' ')
@@ -101,7 +101,7 @@ function formatColumnHeader(name: string): string {
     .trim()
 }
 
-function formatCellValue(value: unknown, column: ColumnMeta): string {
+export function formatCellValue(value: unknown, column: ColumnMeta): string {
   if (value === null || value === undefined) {
     return `<span class="${styles.textMuted}">—</span>`
   }
