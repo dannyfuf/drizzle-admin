@@ -25,4 +25,19 @@ describe('adminUrl', () => {
   it('handles path with query string', () => {
     expect(adminUrl('/admin', '/users?page=2')).toBe('/admin/users?page=2')
   })
+
+  it('handles empty path with basePath', () => {
+    expect(adminUrl('/admin', '')).toBe('/admin')
+  })
+
+  it('returns empty string when both are empty', () => {
+    expect(adminUrl('', '')).toBe('')
+  })
+
+  it('handles basePath "/" — produces protocol-relative-looking URL (design note)', () => {
+    // basePath should never be just "/" after validation strips trailing slash.
+    // But documenting the raw behavior: adminUrl('/', '/login') → '//login'
+    // This is prevented by the basePath validation in DrizzleAdmin constructor.
+    expect(adminUrl('/', '/login')).toBe('//login')
+  })
 })
