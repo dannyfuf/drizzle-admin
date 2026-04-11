@@ -42,6 +42,8 @@ export interface CollectionAction {
 
 /** Options for customizing how a resource is displayed and managed. */
 export interface ResourceOptions {
+  /** Optional folder name for grouping this resource in the sidebar. */
+  folder?: string
   /** Whitelist of column names allowed in create/update forms. */
   permitParams?: string[]
   /** Index view configuration. */
@@ -68,4 +70,6 @@ export interface ResourceDefinition {
   displayName: string
   /** The resource options provided via {@link defineResource}. */
   options: ResourceOptions
+  /** Sidebar folder name. `undefined` means top-level (ungrouped). */
+  folder?: string
 }

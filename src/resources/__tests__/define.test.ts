@@ -17,6 +17,12 @@ describe('defineResource', () => {
     const result = defineResource(table, options)
     expect(result.options).toEqual(options)
   })
+
+  it('passes folder option through', () => {
+    const table = { name: 'contacts' } as unknown as Table
+    const result = defineResource(table, { folder: 'CRM' })
+    expect(result.options.folder).toBe('CRM')
+  })
 })
 
 describe('isResourceExport', () => {

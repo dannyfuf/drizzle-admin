@@ -59,6 +59,7 @@ export async function loadResources(
         routePath,
         displayName,
         options: exported.options,
+        folder: exported.options.folder,
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)

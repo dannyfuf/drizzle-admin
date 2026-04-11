@@ -46,4 +46,12 @@ describe('validateResources', () => {
     expect(errors[0]).toContain('cards')
     expect(errors[0]).toContain('posts')
   })
+
+  it('returns empty array for resources in same folder with different route paths', () => {
+    const resources = [
+      makeResource({ tableName: 'contacts', routePath: 'contacts', folder: 'CRM' }),
+      makeResource({ tableName: 'deals', routePath: 'deals', folder: 'CRM' }),
+    ]
+    expect(validateResources(resources)).toEqual([])
+  })
 })
