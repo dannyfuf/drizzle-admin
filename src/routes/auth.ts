@@ -4,6 +4,7 @@ import { verifyPassword } from '@/auth/password.ts'
 import { createToken } from '@/auth/jwt.ts'
 import { setAuthCookie, clearAuthCookie } from '@/auth/middleware.ts'
 import { setCsrfCookie, validateCsrf } from '@/auth/csrf.ts'
+import { adminUrl } from '@/utils/url.ts'
 
 import type { Table } from 'drizzle-orm'
 import type { PgColumn, PgTable, TableConfig } from 'drizzle-orm/pg-core'
@@ -15,10 +16,12 @@ interface AuthRoutesConfig {
   db: AnyPgDatabase
   adminUsers: Table
   sessionSecret: string
+  basePath: string
   renderLogin: (props: { error?: string; csrfToken: string }) => string
 }
 
 export function createAuthRoutes(config: AuthRoutesConfig): Hono {
+  const { basePath } = config
   const app = new Hono()
   const adminUsers = config.adminUsers as PgTableWithColumns
 
@@ -81,12 +84,12 @@ export function createAuthRoutes(config: AuthRoutesConfig): Hono {
     )
     setAuthCookie(c, token)
 
-    return c.redirect('/')
+    return c.redirect(adminUrl(basePath, '/'))
   })
 
   app.all('/logout', (c) => {
     clearAuthCookie(c)
-    return c.redirect('/login')
+    return c.redirect(adminUrl(basePath, '/login'))
   })
 
   return app

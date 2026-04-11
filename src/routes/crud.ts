@@ -15,6 +15,7 @@ import { showView } from '@/views/show.ts'
 import { formView } from '@/views/form.ts'
 import { createActionRoutes } from '@/routes/actions.ts'
 import { getAdmin } from '@/auth/middleware.ts'
+import { adminUrl } from '@/utils/url.ts'
 
 interface CrudRoutesConfig {
   db: AnyPgDatabase
@@ -22,10 +23,11 @@ interface CrudRoutesConfig {
   adapter: DialectAdapter
   sessionSecret: string
   allResources: ResourceDefinition[]
+  basePath: string
 }
 
 export function createCrudRoutes(config: CrudRoutesConfig): Hono {
-  const { db, resource, adapter, sessionSecret, allResources } = config
+  const { db, resource, adapter, sessionSecret, allResources, basePath } = config
   const app = new Hono()
   const table = resource.table as PgTableWithColumns
   const columns = adapter.extractColumns(resource.table)
@@ -49,8 +51,9 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
       resource,
       columns,
       records,
-      pagination: { currentPage: page, totalPages, baseUrl: `/${resource.routePath}` },
+      pagination: { currentPage: page, totalPages, baseUrl: adminUrl(basePath, `/${resource.routePath}`) },
       csrfToken,
+      basePath,
     })
 
     return c.html(layout({
@@ -59,6 +62,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
       admin,
       resources: allResources,
       currentPath: `/${resource.routePath}`,
+      basePath,
       flash,
     }))
   })
@@ -72,6 +76,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
       resource,
       columns,
       csrfToken,
+      basePath,
     })
 
     return c.html(layout({
@@ -80,6 +85,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
       admin,
       resources: allResources,
       currentPath: `/${resource.routePath}`,
+      basePath,
     }))
   })
 
@@ -88,7 +94,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     const csrfValid = await validateCsrf(c, sessionSecret)
     if (!csrfValid) {
       setFlash(c, 'error', 'Invalid request. Please try again.')
-      return c.redirect(`/${resource.routePath}/new`)
+      return c.redirect(adminUrl(basePath, `/${resource.routePath}/new`))
     }
 
     const body = await c.req.parseBody()
@@ -97,11 +103,11 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     try {
       const [created] = await db.insert(table).values(values).returning()
       setFlash(c, 'success', `${resource.displayName} created successfully.`)
-      return c.redirect(`/${resource.routePath}/${created.id}`)
+      return c.redirect(adminUrl(basePath, `/${resource.routePath}/${created.id}`))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       setFlash(c, 'error', `Failed to create: ${message}`)
-      return c.redirect(`/${resource.routePath}/new`)
+      return c.redirect(adminUrl(basePath, `/${resource.routePath}/new`))
     }
   })
 
@@ -111,7 +117,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     const [record] = await db.select().from(table).where(eq(table.id, id)).limit(1)
 
     if (!record) {
-      return c.html(render404(resource), 404)
+      return c.html(render404(resource, basePath), 404)
     }
 
     const flash = getFlash(c)
@@ -123,6 +129,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
       columns,
       record,
       csrfToken,
+      basePath,
     })
 
     return c.html(layout({
@@ -131,6 +138,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
       admin,
       resources: allResources,
       currentPath: `/${resource.routePath}`,
+      basePath,
       flash,
       modals,
     }))
@@ -142,7 +150,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     const [record] = await db.select().from(table).where(eq(table.id, id)).limit(1)
 
     if (!record) {
-      return c.html(render404(resource), 404)
+      return c.html(render404(resource, basePath), 404)
     }
 
     const csrfToken = await setCsrfCookie(c, sessionSecret)
@@ -153,6 +161,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
       columns,
       record,
       csrfToken,
+      basePath,
     })
 
     return c.html(layout({
@@ -161,6 +170,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
       admin,
       resources: allResources,
       currentPath: `/${resource.routePath}`,
+      basePath,
     }))
   })
 
@@ -176,7 +186,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     const csrfValid = await validateCsrf(c, sessionSecret)
     if (!csrfValid) {
       setFlash(c, 'error', 'Invalid request. Please try again.')
-      return c.redirect(`/${resource.routePath}/${id}/edit`)
+      return c.redirect(adminUrl(basePath, `/${resource.routePath}/${id}/edit`))
     }
 
     const body = await c.req.parseBody()
@@ -186,11 +196,11 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     try {
       await db.update(table).set(values).where(eq(table.id, id))
       setFlash(c, 'success', `${resource.displayName} updated successfully.`)
-      return c.redirect(`/${resource.routePath}/${id}`)
+      return c.redirect(adminUrl(basePath, `/${resource.routePath}/${id}`))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       setFlash(c, 'error', `Failed to update: ${message}`)
-      return c.redirect(`/${resource.routePath}/${id}/edit`)
+      return c.redirect(adminUrl(basePath, `/${resource.routePath}/${id}/edit`))
     }
   })
 
@@ -200,11 +210,11 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     try {
       await db.delete(table).where(eq(table.id, id))
       setFlash(c, 'success', `${resource.displayName} deleted successfully.`)
-      return c.redirect(`/${resource.routePath}`)
+      return c.redirect(adminUrl(basePath, `/${resource.routePath}`))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       setFlash(c, 'error', `Failed to delete: ${message}`)
-      return c.redirect(`/${resource.routePath}/${id}`)
+      return c.redirect(adminUrl(basePath, `/${resource.routePath}/${id}`))
     }
   }
 
@@ -213,6 +223,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     db,
     resource,
     sessionSecret,
+    basePath,
   })
   app.route('/', actionRoutes)
 
@@ -250,12 +261,12 @@ export function parseFormValues(body: Record<string, string | File>, columns: Co
   return values
 }
 
-export function render404(resource: ResourceDefinition): string {
+export function render404(resource: ResourceDefinition, basePath: string = ''): string {
   return `
     <div class="text-center py-12">
       <h2 class="text-xl font-semibold text-zinc-100">Not Found</h2>
       <p class="text-zinc-400 mt-2">${resource.displayName} not found.</p>
-      <a href="/${resource.routePath}" class="text-zinc-100 underline mt-4 inline-block">Back to list</a>
+      <a href="${adminUrl(basePath, `/${resource.routePath}`)}" class="text-zinc-100 underline mt-4 inline-block">Back to list</a>
     </div>
   `
 }

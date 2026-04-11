@@ -15,6 +15,8 @@ export interface DrizzleAdminConfig<TAdminUsers extends Table = Table> {
   resourcesDir: string
   /** Port to listen on. Defaults to `3001`. */
   port?: number
+  /** Base URL path where the admin panel is mounted. Defaults to `''` (root). */
+  basePath?: string
 }
 
 /**
