@@ -19,6 +19,7 @@ export async function setCsrfCookie(
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'Strict',
     maxAge: 60 * 60,
+    path: '/',
   })
   return token
 }
