@@ -3,6 +3,8 @@ import { showView, formatShowValue } from '@/views/show.ts'
 import type { ColumnMeta } from '@/dialects/types.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 
+import type { Table } from 'drizzle-orm'
+
 function makeColumn(overrides: Partial<ColumnMeta> = {}): ColumnMeta {
   return {
     name: 'title',
@@ -17,7 +19,7 @@ function makeColumn(overrides: Partial<ColumnMeta> = {}): ColumnMeta {
 
 function makeResource(overrides: Partial<ResourceDefinition> = {}): ResourceDefinition {
   return {
-    table: {},
+    table: {} as Table,
     tableName: 'cards',
     routePath: 'cards',
     displayName: 'Card',

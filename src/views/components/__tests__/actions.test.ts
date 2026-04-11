@@ -16,9 +16,11 @@ describe('slugify', () => {
   })
 })
 
+import type { Table } from 'drizzle-orm'
+
 function makeResource(overrides: Partial<ResourceDefinition> = {}): ResourceDefinition {
   return {
-    table: {},
+    table: {} as Table,
     tableName: 'cards',
     routePath: 'cards',
     displayName: 'Card',
