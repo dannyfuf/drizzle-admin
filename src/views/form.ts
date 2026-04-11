@@ -4,24 +4,26 @@ import { styles } from '@/views/styles.ts'
 import { renderField } from '@/views/components/field.ts'
 import { button, linkButton } from '@/views/components/button.ts'
 import { csrfInput } from '@/auth/csrf.ts'
+import { adminUrl } from '@/utils/url.ts'
 
 export interface FormViewProps {
   resource: ResourceDefinition
   columns: ColumnMeta[]
   record?: Record<string, unknown>
   csrfToken: string
+  basePath: string
   errors?: Record<string, string>
 }
 
 export function formView(props: FormViewProps): string {
-  const { resource, columns, record, csrfToken, errors } = props
+  const { resource, columns, record, csrfToken, basePath, errors } = props
 
   const isEdit = !!record
   const id = record?.id
 
   const actionUrl = isEdit
-    ? `/${resource.routePath}/${id}?_method=PUT`
-    : `/${resource.routePath}`
+    ? adminUrl(basePath, `/${resource.routePath}/${id}?_method=PUT`)
+    : adminUrl(basePath, `/${resource.routePath}`)
 
   let fields: string
 
@@ -63,12 +65,12 @@ export function formView(props: FormViewProps): string {
 
   const actionBar = isEdit ? `
     <div class="flex items-center gap-2">
-      ${linkButton({ label: 'View', href: `/${resource.routePath}/${id}`, variant: 'ghost' })}
-      ${linkButton({ label: 'Back to list', href: `/${resource.routePath}`, variant: 'ghost' })}
+      ${linkButton({ label: 'View', href: adminUrl(basePath, `/${resource.routePath}/${id}`), variant: 'ghost' })}
+      ${linkButton({ label: 'Back to list', href: adminUrl(basePath, `/${resource.routePath}`), variant: 'ghost' })}
     </div>
   ` : `
     <div class="flex items-center gap-2">
-      ${linkButton({ label: 'Back to list', href: `/${resource.routePath}`, variant: 'ghost' })}
+      ${linkButton({ label: 'Back to list', href: adminUrl(basePath, `/${resource.routePath}`), variant: 'ghost' })}
     </div>
   `
 
@@ -82,7 +84,7 @@ export function formView(props: FormViewProps): string {
 
         <div class="flex items-center gap-2 pt-4">
           ${button({ label: isEdit ? 'Update' : 'Create', type: 'submit', variant: 'primary' })}
-          ${linkButton({ label: 'Cancel', href: `/${resource.routePath}`, variant: 'ghost' })}
+          ${linkButton({ label: 'Cancel', href: adminUrl(basePath, `/${resource.routePath}`), variant: 'ghost' })}
         </div>
       </form>
     </div>

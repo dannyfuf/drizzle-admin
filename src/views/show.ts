@@ -5,16 +5,18 @@ import { escapeHtml } from '@/views/components/flash.ts'
 import { linkButton } from '@/views/components/button.ts'
 import { renderMemberActions } from '@/views/components/actions.ts'
 import { confirmModal, modalTrigger } from '@/views/components/modal.ts'
+import { adminUrl } from '@/utils/url.ts'
 
 export interface ShowViewProps {
   resource: ResourceDefinition
   columns: ColumnMeta[]
   record: Record<string, unknown>
   csrfToken: string
+  basePath: string
 }
 
 export function showView(props: ShowViewProps): { content: string; modals: string } {
-  const { resource, columns, record, csrfToken } = props
+  const { resource, columns, record, csrfToken, basePath } = props
   const id = record.id
 
   const visibleColumns = getVisibleColumns(columns, resource.options.show)
@@ -23,6 +25,7 @@ export function showView(props: ShowViewProps): { content: string; modals: strin
     resource,
     recordId: id as string | number,
     csrfToken,
+    basePath,
   })
 
   const deleteModalId = `delete-${id}`
@@ -32,16 +35,16 @@ export function showView(props: ShowViewProps): { content: string; modals: strin
     message: `Are you sure you want to delete this ${resource.displayName.toLowerCase()}? This action cannot be undone.`,
     confirmLabel: 'Delete',
     confirmVariant: 'danger',
-    formAction: `/${resource.routePath}/${id}?_method=DELETE`,
+    formAction: adminUrl(basePath, `/${resource.routePath}/${id}?_method=DELETE`),
     csrfToken,
   })
 
   const actionBar = `
     <div class="flex items-center gap-2">
       ${actionButtons}
-      ${linkButton({ label: 'Edit', href: `/${resource.routePath}/${id}/edit`, variant: 'secondary' })}
+      ${linkButton({ label: 'Edit', href: adminUrl(basePath, `/${resource.routePath}/${id}/edit`), variant: 'secondary' })}
       ${modalTrigger(deleteModalId, 'Delete', 'danger')}
-      ${linkButton({ label: 'Back to list', href: `/${resource.routePath}`, variant: 'ghost' })}
+      ${linkButton({ label: 'Back to list', href: adminUrl(basePath, `/${resource.routePath}`), variant: 'ghost' })}
     </div>
   `
 

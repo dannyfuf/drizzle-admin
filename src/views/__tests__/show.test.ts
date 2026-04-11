@@ -78,6 +78,7 @@ describe('showView', () => {
     ],
     record: { id: 1, title: 'Test Card' } as Record<string, unknown>,
     csrfToken: 'test-token',
+    basePath: '',
   }
 
   it('returns object with content and modals strings', () => {
@@ -116,7 +117,7 @@ describe('showView', () => {
         makeColumn({ name: 'email' }),
         makeColumn({ name: 'passwordHash' }),
       ],
-      record: { id: 1, email: 'test@test.com', passwordHash: 'secret' },
+      record: { id: 1, email: 'test@test.com', passwordHash: 'secret' } as Record<string, unknown>,
     }
     const { content } = showView(props)
     expect(content).toContain('Email')

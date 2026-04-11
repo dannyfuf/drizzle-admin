@@ -5,6 +5,7 @@ import { escapeHtml } from '@/views/components/flash.ts'
 import { renderPagination, PaginationProps } from '@/views/components/pagination.ts'
 import { linkButton } from '@/views/components/button.ts'
 import { renderCollectionActions } from '@/views/components/actions.ts'
+import { adminUrl } from '@/utils/url.ts'
 
 export interface IndexViewProps {
   resource: ResourceDefinition
@@ -12,19 +13,20 @@ export interface IndexViewProps {
   records: Record<string, unknown>[]
   pagination: PaginationProps
   csrfToken: string
+  basePath: string
 }
 
 export function indexView(props: IndexViewProps): string {
-  const { resource, columns, records, pagination, csrfToken } = props
+  const { resource, columns, records, pagination, csrfToken, basePath } = props
 
   const visibleColumns = getVisibleColumns(columns, resource.options.index)
 
-  const collectionActions = renderCollectionActions({ resource, csrfToken })
+  const collectionActions = renderCollectionActions({ resource, csrfToken, basePath })
 
   const actionBar = `
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
-        ${linkButton({ label: 'Create New', href: `/${resource.routePath}/new`, variant: 'primary' })}
+        ${linkButton({ label: 'Create New', href: adminUrl(basePath, `/${resource.routePath}/new`), variant: 'primary' })}
         ${collectionActions}
       </div>
     </div>
@@ -51,8 +53,8 @@ export function indexView(props: IndexViewProps): string {
     const id = record.id
     const actions = `
       <td class="${styles.tableCell} text-right">
-        <a href="/${resource.routePath}/${id}" class="${styles.btnGhost} text-sm">View</a>
-        <a href="/${resource.routePath}/${id}/edit" class="${styles.btnGhost} text-sm">Edit</a>
+        <a href="${adminUrl(basePath, `/${resource.routePath}/${id}`)}" class="${styles.btnGhost} text-sm">View</a>
+        <a href="${adminUrl(basePath, `/${resource.routePath}/${id}/edit`)}" class="${styles.btnGhost} text-sm">Edit</a>
       </td>
     `
 

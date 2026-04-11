@@ -2,15 +2,17 @@ import type { ResourceDefinition } from '@/resources/types.ts'
 import { confirmModal, modalTrigger } from '@/views/components/modal.ts'
 import { escapeHtml } from '@/views/components/flash.ts'
 import { styles } from '@/views/styles.ts'
+import { adminUrl } from '@/utils/url.ts'
 
 export interface MemberActionsProps {
   resource: ResourceDefinition
   recordId: string | number
   csrfToken: string
+  basePath: string
 }
 
 export function renderMemberActions(props: MemberActionsProps): { buttons: string; modals: string } {
-  const { resource, recordId, csrfToken } = props
+  const { resource, recordId, csrfToken, basePath } = props
   const actions = resource.options.memberActions ?? []
 
   if (actions.length === 0) {
@@ -22,7 +24,7 @@ export function renderMemberActions(props: MemberActionsProps): { buttons: strin
 
   for (const action of actions) {
     const actionSlug = slugify(action.name)
-    const actionUrl = `/${resource.routePath}/${recordId}/actions/${actionSlug}`
+    const actionUrl = adminUrl(basePath, `/${resource.routePath}/${recordId}/actions/${actionSlug}`)
     const modalIdStr = `modal-${actionSlug}-${recordId}`
     const isDestructive = action.destructive !== false
 
@@ -58,10 +60,11 @@ export function renderMemberActions(props: MemberActionsProps): { buttons: strin
 export interface CollectionActionsProps {
   resource: ResourceDefinition
   csrfToken: string
+  basePath: string
 }
 
 export function renderCollectionActions(props: CollectionActionsProps): string {
-  const { resource, csrfToken } = props
+  const { resource, csrfToken, basePath } = props
   const actions = resource.options.collectionActions ?? []
 
   if (actions.length === 0) {
@@ -70,7 +73,7 @@ export function renderCollectionActions(props: CollectionActionsProps): string {
 
   return actions.map(action => {
     const actionSlug = slugify(action.name)
-    const actionUrl = `/${resource.routePath}/actions/${actionSlug}`
+    const actionUrl = adminUrl(basePath, `/${resource.routePath}/actions/${actionSlug}`)
 
     return `
       <form method="POST" action="${actionUrl}" class="inline">

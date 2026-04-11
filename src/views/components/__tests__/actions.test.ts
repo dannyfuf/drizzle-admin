@@ -35,6 +35,7 @@ describe('renderMemberActions', () => {
       resource: makeResource(),
       recordId: 1,
       csrfToken: 'token',
+      basePath: '',
     })
     expect(result.buttons).toBe('')
     expect(result.modals).toBe('')
@@ -48,7 +49,7 @@ describe('renderMemberActions', () => {
         ],
       },
     })
-    const result = renderMemberActions({ resource, recordId: 1, csrfToken: 'token' })
+    const result = renderMemberActions({ resource, recordId: 1, csrfToken: 'token', basePath: '' })
     expect(result.buttons).toContain('openModal')
     expect(result.modals).toContain('Archive')
   })
@@ -61,7 +62,7 @@ describe('renderMemberActions', () => {
         ],
       },
     })
-    const result = renderMemberActions({ resource, recordId: 1, csrfToken: 'token' })
+    const result = renderMemberActions({ resource, recordId: 1, csrfToken: 'token', basePath: '' })
     expect(result.buttons).toContain('type="submit"')
     expect(result.buttons).toContain('Publish')
   })
@@ -72,6 +73,7 @@ describe('renderCollectionActions', () => {
     const result = renderCollectionActions({
       resource: makeResource(),
       csrfToken: 'token',
+      basePath: '',
     })
     expect(result).toBe('')
   })
@@ -84,7 +86,7 @@ describe('renderCollectionActions', () => {
         ],
       },
     })
-    const result = renderCollectionActions({ resource, csrfToken: 'token' })
+    const result = renderCollectionActions({ resource, csrfToken: 'token', basePath: '' })
     expect(result).toContain('Export CSV')
     expect(result).toContain('actions/export-csv')
   })

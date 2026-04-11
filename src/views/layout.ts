@@ -4,6 +4,7 @@ import type { FlashMessage } from '@/utils/flash.ts'
 import { styles, tailwindScript } from '@/views/styles.ts'
 import { renderFlash, escapeHtml } from '@/views/components/flash.ts'
 import { modalScript } from '@/views/components/modal.ts'
+import { adminUrl } from '@/utils/url.ts'
 
 export interface LayoutProps {
   title: string
@@ -11,12 +12,13 @@ export interface LayoutProps {
   admin: AdminTokenPayload
   resources: ResourceDefinition[]
   currentPath: string
+  basePath: string
   flash?: FlashMessage | null
   modals?: string
 }
 
 export function layout(props: LayoutProps): string {
-  const { title, content, admin, resources, currentPath, flash, modals } = props
+  const { title, content, admin, resources, currentPath, basePath, flash, modals } = props
 
   return `
 <!DOCTYPE html>
@@ -35,14 +37,14 @@ export function layout(props: LayoutProps): string {
     <!-- Sidebar -->
     <aside class="w-64 ${styles.bgCard} ${styles.border} border-t-0 border-l-0 border-b-0 flex flex-col">
       <div class="p-4 border-b border-zinc-800">
-        <a href="/" class="text-xl font-bold text-zinc-100">DrizzleAdmin</a>
+        <a href="${adminUrl(basePath, '/')}" class="text-xl font-bold text-zinc-100">DrizzleAdmin</a>
       </div>
       <nav class="flex-1 p-4 space-y-1">
-        ${resources.map(r => renderNavItem(r, currentPath)).join('')}
+        ${resources.map(r => renderNavItem(r, currentPath, basePath)).join('')}
       </nav>
       <div class="p-4 border-t border-zinc-800">
         <div class="${styles.textMuted} text-sm truncate">${escapeHtml(admin.email)}</div>
-        <a href="/logout" class="${styles.textMuted} text-sm hover:text-zinc-100">Sign out</a>
+        <a href="${adminUrl(basePath, '/logout')}" class="${styles.textMuted} text-sm hover:text-zinc-100">Sign out</a>
       </div>
     </aside>
 
@@ -68,9 +70,9 @@ export function layout(props: LayoutProps): string {
 `
 }
 
-function renderNavItem(resource: ResourceDefinition, currentPath: string): string {
-  const href = `/${resource.routePath}`
-  const isActive = currentPath.startsWith(href)
+function renderNavItem(resource: ResourceDefinition, currentPath: string, basePath: string): string {
+  const href = adminUrl(basePath, `/${resource.routePath}`)
+  const isActive = currentPath.startsWith(`/${resource.routePath}`)
   const className = isActive ? styles.navLinkActive : styles.navLink
 
   return `

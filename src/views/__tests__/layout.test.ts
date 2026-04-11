@@ -20,6 +20,7 @@ const baseProps = {
   admin: { adminId: 1, email: 'admin@example.com' },
   resources: [makeResource()],
   currentPath: '/cards',
+  basePath: '',
 }
 
 describe('layout', () => {

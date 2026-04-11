@@ -62,6 +62,7 @@ describe('formView', () => {
       resource: makeResource(),
       columns,
       csrfToken: 'token',
+      basePath: '',
     })
     expect(html).toContain('method="POST"')
     expect(html).toContain('action="/cards"')
@@ -73,6 +74,7 @@ describe('formView', () => {
       columns,
       record: { id: 1, title: 'Test' },
       csrfToken: 'token',
+      basePath: '',
     })
     expect(html).toContain('_method=PUT')
   })
@@ -82,6 +84,7 @@ describe('formView', () => {
       resource: makeResource(),
       columns,
       csrfToken: 'my-token',
+      basePath: '',
     })
     expect(html).toContain('name="_csrf"')
     expect(html).toContain('value="my-token"')
@@ -92,6 +95,7 @@ describe('formView', () => {
       resource: makeResource(),
       columns,
       csrfToken: 'token',
+      basePath: '',
     })
     expect(html).toContain('Back to list')
     expect(html).toContain('/cards')
@@ -103,6 +107,7 @@ describe('formView', () => {
       columns,
       record: { id: 5, title: 'Test' },
       csrfToken: 'token',
+      basePath: '',
     })
     expect(html).toContain('View')
     expect(html).toContain('/cards/5')
@@ -114,6 +119,7 @@ describe('formView', () => {
         resource: makeResource(),
         columns,
         csrfToken: 'token',
+        basePath: '',
       })
       expect(html).not.toContain('name="id"')
       expect(html).not.toContain('name="createdAt"')
@@ -128,6 +134,7 @@ describe('formView', () => {
         columns,
         record: { id: 42, title: 'Test', createdAt: '2024-01-15T10:30' },
         csrfToken: 'token',
+        basePath: '',
       })
       expect(html).toContain('name="id"')
       expect(html).toContain('disabled')
@@ -140,6 +147,7 @@ describe('formView', () => {
         columns,
         record: { id: 1, title: 'Test', createdAt: '2024-01-15T10:30' },
         csrfToken: 'token',
+        basePath: '',
       })
       expect(html).toContain('name="createdAt"')
       // The createdAt field should be rendered as disabled
@@ -155,6 +163,7 @@ describe('formView', () => {
         columns,
         record: { id: 1, title: 'Test', createdAt: '2024-01-15T10:30' },
         csrfToken: 'token',
+        basePath: '',
       })
       // Find the title input specifically and verify it's not disabled
       // The title input should use the normal input style, not inputDisabled
@@ -177,6 +186,7 @@ describe('formView', () => {
       ],
       record: { id: 1, title: 'Test', body: 'Content', createdAt: '2024-01-15T10:30' },
       csrfToken: 'token',
+      basePath: '',
     })
     // id and createdAt should still appear as disabled even with permitParams
     expect(html).toContain('name="id"')
@@ -195,6 +205,7 @@ describe('formView', () => {
         makeColumn({ name: 'body' }),
       ],
       csrfToken: 'token',
+      basePath: '',
     })
     expect(html).toContain('name="title"')
     expect(html).not.toContain('name="body"')

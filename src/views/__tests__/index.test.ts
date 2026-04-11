@@ -144,6 +144,7 @@ describe('indexView', () => {
     ],
     pagination: { currentPage: 1, totalPages: 1, baseUrl: '/cards' },
     csrfToken: 'test-token',
+    basePath: '',
   }
 
   it('renders "no records" message when records array is empty', () => {
