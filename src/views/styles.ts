@@ -15,8 +15,10 @@ export const styles = {
   btnGhost: 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 px-4 py-2 rounded-lg transition-colors',
 
   input: 'w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-transparent',
+  inputDisabled: 'w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-500 cursor-not-allowed opacity-60',
   label: 'block text-sm font-medium text-zinc-300 mb-1',
   checkbox: 'w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-zinc-100 focus:ring-zinc-600',
+  checkboxDisabled: 'w-4 h-4 rounded border-zinc-700 bg-zinc-950 text-zinc-500 cursor-not-allowed opacity-60',
 
   card: 'bg-zinc-900 border border-zinc-800 rounded-lg shadow-sm',
   cardPadded: 'bg-zinc-900 border border-zinc-800 rounded-lg shadow-sm p-6',

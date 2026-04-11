@@ -6,22 +6,19 @@ export interface FieldProps {
   column: ColumnMeta
   value?: unknown
   error?: string
+  disabled?: boolean
 }
 
 export function renderField(props: FieldProps): string {
-  const { column, value, error } = props
+  const { column, value, error, disabled } = props
 
-  if (isAutoManaged(column)) {
-    return ''
-  }
-
-  const inputHtml = renderInput(column, value)
+  const inputHtml = renderInput(column, value, disabled)
 
   return `
     <div class="space-y-1">
       <label for="${column.name}" class="${styles.label}">
         ${formatLabel(column.name)}
-        ${column.isNullable ? '' : '<span class="text-red-400">*</span>'}
+        ${column.isNullable || disabled ? '' : '<span class="text-red-400">*</span>'}
       </label>
       ${inputHtml}
       ${error ? `<p class="text-sm ${styles.textError}">${escapeHtml(error)}</p>` : ''}
@@ -29,9 +26,12 @@ export function renderField(props: FieldProps): string {
   `
 }
 
-function renderInput(column: ColumnMeta, value: unknown): string {
+function renderInput(column: ColumnMeta, value: unknown, disabled?: boolean): string {
   const name = column.name
-  const required = !column.isNullable && !column.hasDefault
+  const required = !disabled && !column.isNullable && !column.hasDefault
+  const disabledAttr = disabled ? 'disabled' : ''
+  const inputStyle = disabled ? styles.inputDisabled : styles.input
+  const checkboxStyle = disabled ? styles.checkboxDisabled : styles.checkbox
 
   if (isPasswordColumn(column)) {
     return `
@@ -39,8 +39,9 @@ function renderInput(column: ColumnMeta, value: unknown): string {
         type="password"
         id="${name}"
         name="${name}"
-        class="${styles.input}"
+        class="${inputStyle}"
         ${required ? 'required' : ''}
+        ${disabledAttr}
       >
     `
   }
@@ -51,7 +52,7 @@ function renderInput(column: ColumnMeta, value: unknown): string {
       .join('')
 
     return `
-      <select id="${name}" name="${name}" class="${styles.input}" ${required ? 'required' : ''}>
+      <select id="${name}" name="${name}" class="${inputStyle}" ${required ? 'required' : ''} ${disabledAttr}>
         <option value="">Select...</option>
         ${options}
       </select>
@@ -65,8 +66,9 @@ function renderInput(column: ColumnMeta, value: unknown): string {
         id="${name}"
         name="${name}"
         value="true"
-        class="${styles.checkbox}"
+        class="${checkboxStyle}"
         ${value === true ? 'checked' : ''}
+        ${disabledAttr}
       >
     `
   }
@@ -78,8 +80,9 @@ function renderInput(column: ColumnMeta, value: unknown): string {
         id="${name}"
         name="${name}"
         rows="4"
-        class="${styles.input} font-mono text-sm"
+        class="${inputStyle} font-mono text-sm"
         ${required ? 'required' : ''}
+        ${disabledAttr}
       >${escapeHtml(formatted)}</textarea>
     `
   }
@@ -95,8 +98,9 @@ function renderInput(column: ColumnMeta, value: unknown): string {
         id="${name}"
         name="${name}"
         value="${formatted}"
-        class="${styles.input}"
+        class="${inputStyle}"
         ${required ? 'required' : ''}
+        ${disabledAttr}
       >
     `
   }
@@ -108,8 +112,9 @@ function renderInput(column: ColumnMeta, value: unknown): string {
         id="${name}"
         name="${name}"
         value="${value ?? ''}"
-        class="${styles.input}"
+        class="${inputStyle}"
         ${required ? 'required' : ''}
+        ${disabledAttr}
       >
     `
   }
@@ -120,18 +125,11 @@ function renderInput(column: ColumnMeta, value: unknown): string {
       id="${name}"
       name="${name}"
       value="${escapeHtml(String(value ?? ''))}"
-      class="${styles.input}"
+      class="${inputStyle}"
       ${required ? 'required' : ''}
+      ${disabledAttr}
     >
   `
-}
-
-function isAutoManaged(column: ColumnMeta): boolean {
-  if (column.isPrimaryKey) return true
-  if (['createdAt', 'created_at', 'updatedAt', 'updated_at'].includes(column.name)) {
-    return column.hasDefault
-  }
-  return false
 }
 
 function isPasswordColumn(column: ColumnMeta): boolean {
