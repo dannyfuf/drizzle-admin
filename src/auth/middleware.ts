@@ -19,7 +19,7 @@ export function authMiddleware(sessionSecret: string, basePath: string = '') {
     const payload = await verifyToken(token, sessionSecret);
 
     if (!payload) {
-      setCookie(c, AUTH_COOKIE_NAME, "", { maxAge: 0 });
+      setCookie(c, AUTH_COOKIE_NAME, "", { maxAge: 0, path: "/" });
       return c.redirect(adminUrl(basePath, LOGIN_PATH));
     }
 
@@ -32,16 +32,16 @@ export function getAdmin(c: Context): AdminTokenPayload {
   return c.get(ADMIN_CONTEXT_KEY) as AdminTokenPayload;
 }
 
-export function setAuthCookie(c: Context, token: string): void {
+export function setAuthCookie(c: Context, token: string, basePath: string = ''): void {
   setCookie(c, AUTH_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "Strict",
     maxAge: 60 * 60 * 24,
-    path: "/",
+    path: basePath || "/",
   });
 }
 
-export function clearAuthCookie(c: Context): void {
-  setCookie(c, AUTH_COOKIE_NAME, "", { maxAge: 0, path: "/" });
+export function clearAuthCookie(c: Context, basePath: string = ''): void {
+  setCookie(c, AUTH_COOKIE_NAME, "", { maxAge: 0, path: basePath || "/" });
 }

@@ -17,7 +17,7 @@ interface AuthRoutesConfig {
   adminUsers: Table
   sessionSecret: string
   basePath: string
-  renderLogin: (props: { error?: string; csrfToken: string }) => string
+  renderLogin: (props: { error?: string; csrfToken: string; basePath: string }) => string
 }
 
 export function createAuthRoutes(config: AuthRoutesConfig): Hono {
@@ -27,7 +27,7 @@ export function createAuthRoutes(config: AuthRoutesConfig): Hono {
 
   app.get('/login', async (c) => {
     const csrfToken = await setCsrfCookie(c, config.sessionSecret)
-    const html = config.renderLogin({ csrfToken })
+    const html = config.renderLogin({ csrfToken, basePath })
     return c.html(html)
   })
 
@@ -38,6 +38,7 @@ export function createAuthRoutes(config: AuthRoutesConfig): Hono {
       return c.html(config.renderLogin({
         error: 'Invalid request. Please try again.',
         csrfToken,
+        basePath,
       }))
     }
 
@@ -50,6 +51,7 @@ export function createAuthRoutes(config: AuthRoutesConfig): Hono {
       return c.html(config.renderLogin({
         error: 'Email and password are required.',
         csrfToken,
+        basePath,
       }))
     }
 
@@ -66,6 +68,7 @@ export function createAuthRoutes(config: AuthRoutesConfig): Hono {
       return c.html(config.renderLogin({
         error: 'Invalid email or password.',
         csrfToken,
+        basePath,
       }))
     }
 
@@ -75,6 +78,7 @@ export function createAuthRoutes(config: AuthRoutesConfig): Hono {
       return c.html(config.renderLogin({
         error: 'Invalid email or password.',
         csrfToken,
+        basePath,
       }))
     }
 
@@ -82,13 +86,13 @@ export function createAuthRoutes(config: AuthRoutesConfig): Hono {
       { adminId: admin.id as number, email: admin.email as string },
       config.sessionSecret
     )
-    setAuthCookie(c, token)
+    setAuthCookie(c, token, basePath)
 
     return c.redirect(adminUrl(basePath, '/'))
   })
 
   app.all('/logout', (c) => {
-    clearAuthCookie(c)
+    clearAuthCookie(c, basePath)
     return c.redirect(adminUrl(basePath, '/login'))
   })
 

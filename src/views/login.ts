@@ -1,14 +1,16 @@
 import { styles, tailwindScript } from '@/views/styles.ts'
 import { escapeHtml } from '@/views/components/flash.ts'
 import { csrfInput } from '@/auth/csrf.ts'
+import { adminUrl } from '@/utils/url.ts'
 
 export interface LoginProps {
   csrfToken: string
+  basePath: string
   error?: string
 }
 
 export function loginPage(props: LoginProps): string {
-  const { csrfToken, error } = props
+  const { csrfToken, basePath, error } = props
 
   return `
 <!DOCTYPE html>
@@ -36,7 +38,7 @@ export function loginPage(props: LoginProps): string {
         </div>
       ` : ''}
 
-      <form method="POST" action="/login" class="space-y-4">
+      <form method="POST" action="${adminUrl(basePath, '/login')}" class="space-y-4">
         ${csrfInput(csrfToken)}
 
         <div>
