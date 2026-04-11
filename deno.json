@@ -5,7 +5,9 @@
   "license": "MIT",
   "exports": {
     ".": "./src/index.ts",
-    "./actions/csv": "./src/actions/csv.ts"
+    "./actions/csv": "./src/actions/csv.ts",
+    "./hono": "./src/adapters/hono.ts",
+    "./express": "./src/adapters/express.ts"
   },
   "imports": {
     "@/": "./src/",

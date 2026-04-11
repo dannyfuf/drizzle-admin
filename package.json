@@ -12,6 +12,14 @@
     "./actions/csv": {
       "import": "./dist/actions/csv.js",
       "types": "./dist/actions/csv.d.ts"
+    },
+    "./hono": {
+      "import": "./dist/adapters/hono.js",
+      "types": "./dist/adapters/hono.d.ts"
+    },
+    "./express": {
+      "import": "./dist/adapters/express.js",
+      "types": "./dist/adapters/express.d.ts"
     }
   },
   "scripts": {
