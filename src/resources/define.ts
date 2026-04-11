@@ -1,9 +1,10 @@
+import type { Table } from 'drizzle-orm'
 import type { ResourceOptions } from '@/resources/types.ts'
 
 /** The object returned by {@link defineResource}, used internally by the resource loader. */
 export interface ResourceExport {
   __drizzleAdminResource: true
-  table: unknown
+  table: Table
   options: ResourceOptions
 }
 
@@ -16,9 +17,9 @@ export interface ResourceExport {
  * @param options - Optional configuration for index, show, form views, and actions.
  * @returns A {@link ResourceExport} recognized by the resource loader.
  */
-export function defineResource(table: unknown): ResourceExport
-export function defineResource(table: unknown, options: ResourceOptions): ResourceExport
-export function defineResource(table: unknown, options?: ResourceOptions): ResourceExport {
+export function defineResource(table: Table): ResourceExport
+export function defineResource(table: Table, options: ResourceOptions): ResourceExport
+export function defineResource(table: Table, options?: ResourceOptions): ResourceExport {
   return {
     __drizzleAdminResource: true,
     table,
@@ -37,6 +38,6 @@ export function isResourceExport(value: unknown): value is ResourceExport {
     typeof value === 'object' &&
     value !== null &&
     '__drizzleAdminResource' in value &&
-    (value as any).__drizzleAdminResource === true
+    (value as ResourceExport).__drizzleAdminResource === true
   )
 }

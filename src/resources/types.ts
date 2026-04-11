@@ -1,4 +1,6 @@
 import type { Context } from 'hono'
+import type { Table } from 'drizzle-orm'
+import type { AnyPgDatabase } from '@/types.ts'
 
 /** Configuration for selecting which columns to display. */
 export interface ColumnConfig {
@@ -25,7 +27,7 @@ export interface MemberAction {
   /** Display name shown in the UI. */
   name: string
   /** Handler called with the record ID and database instance. */
-  handler: (id: string | number, db: unknown) => Promise<void>
+  handler: (id: string | number, db: AnyPgDatabase) => Promise<void>
   /** When `true`, the UI shows a destructive confirmation style. */
   destructive?: boolean
 }
@@ -35,7 +37,7 @@ export interface CollectionAction {
   /** Display name shown in the UI. */
   name: string
   /** Handler called with the Hono context and database instance. */
-  handler: (c: Context, db: unknown) => Promise<void | Response>
+  handler: (c: Context, db: AnyPgDatabase) => Promise<void | Response>
 }
 
 /** Options for customizing how a resource is displayed and managed. */
@@ -57,7 +59,7 @@ export interface ResourceOptions {
 /** A fully resolved resource definition used internally by DrizzleAdmin. */
 export interface ResourceDefinition {
   /** The Drizzle ORM table object. */
-  table: unknown
+  table: Table
   /** The SQL table name. */
   tableName: string
   /** The URL path segment for this resource. */
