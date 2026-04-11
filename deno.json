@@ -8,6 +8,7 @@
     "./actions/csv": "./src/actions/csv.ts"
   },
   "imports": {
+    "@/": "./src/",
     "hono": "npm:hono@^4",
     "hono/cookie": "npm:hono@^4/cookie",
     "drizzle-orm": "npm:drizzle-orm@^0.35",
