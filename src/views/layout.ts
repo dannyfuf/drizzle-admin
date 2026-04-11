@@ -30,6 +30,8 @@ export function layout(props: LayoutProps): string {
   ${tailwindScript}
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; }
+    details[open] > summary svg { transform: rotate(90deg) !important; }
+    details > summary::-webkit-details-marker { display: none; }
   </style>
 </head>
 <body class="${styles.bg} ${styles.text} min-h-screen">
@@ -40,7 +42,7 @@ export function layout(props: LayoutProps): string {
         <a href="${adminUrl(basePath, '/')}" class="text-xl font-bold text-zinc-100">DrizzleAdmin</a>
       </div>
       <nav class="flex-1 p-4 space-y-1">
-        ${resources.map(r => renderNavItem(r, currentPath, basePath)).join('')}
+        ${renderSidebar(resources, currentPath, basePath)}
       </nav>
       <div class="p-4 border-t border-zinc-800">
         <div class="${styles.textMuted} text-sm truncate">${escapeHtml(admin.email)}</div>
@@ -84,4 +86,88 @@ function renderNavItem(resource: ResourceDefinition, currentPath: string, basePa
       ${escapeHtml(resource.displayName)}s
     </a>
   `
+}
+
+export interface SidebarGroup {
+  folder: string | null
+  resources: ResourceDefinition[]
+}
+
+/**
+ * Groups resources for sidebar rendering.
+ * - Ungrouped resources (no folder) come first, sorted by displayName.
+ * - Folder groups follow, sorted by folder name.
+ * - Resources within each folder are sorted by displayName.
+ */
+export function groupResourcesForSidebar(resources: ResourceDefinition[]): SidebarGroup[] {
+  const ungrouped: ResourceDefinition[] = []
+  const folderMap = new Map<string, ResourceDefinition[]>()
+
+  for (const r of resources) {
+    if (r.folder) {
+      const list = folderMap.get(r.folder) ?? []
+      list.push(r)
+      folderMap.set(r.folder, list)
+    } else {
+      ungrouped.push(r)
+    }
+  }
+
+  ungrouped.sort((a, b) => a.displayName.localeCompare(b.displayName))
+
+  const groups: SidebarGroup[] = []
+
+  if (ungrouped.length > 0) {
+    groups.push({ folder: null, resources: ungrouped })
+  }
+
+  const sortedFolders = [...folderMap.entries()].sort(([a], [b]) => a.localeCompare(b))
+  for (const [folder, items] of sortedFolders) {
+    items.sort((a, b) => a.displayName.localeCompare(b.displayName))
+    groups.push({ folder, resources: items })
+  }
+
+  return groups
+}
+
+function renderFolder(
+  group: SidebarGroup,
+  currentPath: string,
+  basePath: string,
+): string {
+  const hasActive = group.resources.some(r =>
+    currentPath.startsWith(`/${r.routePath}`)
+  )
+  const openAttr = hasActive ? ' open' : ''
+
+  return `
+    <details class="${styles.folderDetails}"${openAttr}>
+      <summary class="${styles.folderSummary}">
+        <svg class="w-3 h-3 transition-transform" style="transform: rotate(0deg)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        ${escapeHtml(group.folder!)}
+      </summary>
+      <div class="ml-2 space-y-1">
+        ${group.resources.map(r => renderNavItem(r, currentPath, basePath)).join('')}
+      </div>
+    </details>
+  `
+}
+
+function renderSidebar(
+  resources: ResourceDefinition[],
+  currentPath: string,
+  basePath: string,
+): string {
+  const groups = groupResourcesForSidebar(resources)
+
+  return groups.map(group => {
+    if (group.folder === null) {
+      return group.resources
+        .map(r => renderNavItem(r, currentPath, basePath))
+        .join('')
+    }
+    return renderFolder(group, currentPath, basePath)
+  }).join('')
 }

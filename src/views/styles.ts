@@ -31,6 +31,9 @@ export const styles = {
   link: 'text-zinc-100 hover:text-white underline underline-offset-4',
   navLink: 'flex items-center gap-2 px-3 py-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors',
   navLinkActive: 'flex items-center gap-2 px-3 py-2 text-zinc-100 bg-zinc-800 rounded-lg',
+
+  folderSummary: 'flex items-center gap-2 px-3 py-2 text-zinc-500 text-sm font-medium uppercase tracking-wider cursor-pointer select-none list-none hover:text-zinc-300 transition-colors',
+  folderDetails: 'space-y-1',
 }
 
 export const tailwindScript = `
