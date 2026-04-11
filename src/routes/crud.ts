@@ -1,5 +1,10 @@
 import { Hono } from 'hono'
+import type { Context } from 'hono'
 import { eq, sql } from 'drizzle-orm'
+import type { PgColumn, PgTable, TableConfig } from 'drizzle-orm/pg-core'
+import type { AnyPgDatabase } from '@/types.ts'
+
+type PgTableWithColumns = PgTable<TableConfig> & Record<string, PgColumn>
 import type { ResourceDefinition } from '@/resources/types.ts'
 import type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'
 import { setFlash, getFlash } from '@/utils/flash.ts'
@@ -12,7 +17,7 @@ import { createActionRoutes } from '@/routes/actions.ts'
 import { getAdmin } from '@/auth/middleware.ts'
 
 interface CrudRoutesConfig {
-  db: any
+  db: AnyPgDatabase
   resource: ResourceDefinition
   adapter: DialectAdapter
   sessionSecret: string
@@ -22,8 +27,8 @@ interface CrudRoutesConfig {
 export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   const { db, resource, adapter, sessionSecret, allResources } = config
   const app = new Hono()
-  const table = resource.table as any
-  const columns = adapter.extractColumns(table)
+  const table = resource.table as PgTableWithColumns
+  const columns = adapter.extractColumns(resource.table)
   const perPage = resource.options.index?.perPage ?? 20
 
   // GET / - Index
@@ -189,7 +194,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     }
   })
 
-  async function handleDelete(c: any) {
+  async function handleDelete(c: Context) {
     const id = c.req.param('id')
 
     try {
@@ -214,8 +219,8 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   return app
 }
 
-export function parseFormValues(body: Record<string, any>, columns: ColumnMeta[], permitParams?: string[]): Record<string, any> {
-  const values: Record<string, any> = {}
+export function parseFormValues(body: Record<string, string | File>, columns: ColumnMeta[], permitParams?: string[]): Record<string, unknown> {
+  const values: Record<string, unknown> = {}
 
   for (const col of columns) {
     if (col.isPrimaryKey) continue
@@ -225,17 +230,17 @@ export function parseFormValues(body: Record<string, any>, columns: ColumnMeta[]
     const rawValue = body[col.name]
 
     if (col.dataType === 'boolean') {
-      values[col.name] = rawValue === 'true' || rawValue === true
+      values[col.name] = rawValue === 'true'
     } else if (col.dataType === 'integer') {
-      values[col.name] = rawValue ? parseInt(rawValue, 10) : null
+      values[col.name] = rawValue ? parseInt(String(rawValue), 10) : null
     } else if (col.dataType === 'json') {
       try {
-        values[col.name] = rawValue ? JSON.parse(rawValue) : null
+        values[col.name] = rawValue ? JSON.parse(String(rawValue)) : null
       } catch {
         values[col.name] = null
       }
     } else if (col.dataType === 'timestamp') {
-      values[col.name] = rawValue ? new Date(rawValue) : null
+      values[col.name] = rawValue ? new Date(String(rawValue)) : null
     } else {
       values[col.name] = rawValue ?? null
     }

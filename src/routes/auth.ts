@@ -5,15 +5,22 @@ import { createToken } from '@/auth/jwt.ts'
 import { setAuthCookie, clearAuthCookie } from '@/auth/middleware.ts'
 import { setCsrfCookie, validateCsrf } from '@/auth/csrf.ts'
 
+import type { Table } from 'drizzle-orm'
+import type { PgColumn, PgTable, TableConfig } from 'drizzle-orm/pg-core'
+import type { AnyPgDatabase } from '@/types.ts'
+
+type PgTableWithColumns = PgTable<TableConfig> & Record<string, PgColumn>
+
 interface AuthRoutesConfig {
-  db: any
-  adminUsers: any
+  db: AnyPgDatabase
+  adminUsers: Table
   sessionSecret: string
   renderLogin: (props: { error?: string; csrfToken: string }) => string
 }
 
 export function createAuthRoutes(config: AuthRoutesConfig): Hono {
   const app = new Hono()
+  const adminUsers = config.adminUsers as PgTableWithColumns
 
   app.get('/login', async (c) => {
     const csrfToken = await setCsrfCookie(c, config.sessionSecret)
@@ -43,11 +50,13 @@ export function createAuthRoutes(config: AuthRoutesConfig): Hono {
       }))
     }
 
-    const [admin] = await config.db
+    const [row] = await config.db
       .select()
-      .from(config.adminUsers)
-      .where(eq(config.adminUsers.email, email))
+      .from(adminUsers)
+      .where(eq(adminUsers.email, email))
       .limit(1)
+
+    const admin = row as Record<string, unknown> | undefined
 
     if (!admin) {
       const csrfToken = await setCsrfCookie(c, config.sessionSecret)
@@ -57,7 +66,7 @@ export function createAuthRoutes(config: AuthRoutesConfig): Hono {
       }))
     }
 
-    const valid = await verifyPassword(password, admin.passwordHash)
+    const valid = await verifyPassword(password, admin.passwordHash as string)
     if (!valid) {
       const csrfToken = await setCsrfCookie(c, config.sessionSecret)
       return c.html(config.renderLogin({
@@ -67,7 +76,7 @@ export function createAuthRoutes(config: AuthRoutesConfig): Hono {
     }
 
     const token = await createToken(
-      { adminId: admin.id, email: admin.email },
+      { adminId: admin.id as number, email: admin.email as string },
       config.sessionSecret
     )
     setAuthCookie(c, token)

@@ -4,8 +4,10 @@ import { validateCsrf } from '@/auth/csrf.ts'
 import { setFlash } from '@/utils/flash.ts'
 import { slugify } from '@/views/components/actions.ts'
 
+import type { AnyPgDatabase } from '@/types.ts'
+
 interface ActionRoutesConfig {
-  db: any
+  db: AnyPgDatabase
   resource: ResourceDefinition
   sessionSecret: string
 }
