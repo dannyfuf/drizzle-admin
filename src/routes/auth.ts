@@ -1,20 +1,17 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { eq, getTableColumns } from 'drizzle-orm'
 import { verifyPassword } from '@/auth/password.ts'
 import { createToken } from '@/auth/jwt.ts'
 import { setAuthCookie, clearAuthCookie } from '@/auth/middleware.ts'
 import { setCsrfCookie, validateCsrf } from '@/auth/csrf.ts'
 import { adminUrl } from '@/utils/url.ts'
 
-import type { Table } from 'drizzle-orm'
-import type { PgColumn, PgTable, TableConfig } from 'drizzle-orm/pg-core'
+import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyPgDatabase } from '@/types.ts'
-
-type PgTableWithColumns = PgTable<TableConfig> & Record<string, PgColumn>
 
 interface AuthRoutesConfig {
   db: AnyPgDatabase
-  adminUsers: Table
+  adminUsers: PgTable
   sessionSecret: string
   basePath: string
   renderLogin: (props: { error?: string; csrfToken: string; basePath: string }) => string
@@ -23,7 +20,8 @@ interface AuthRoutesConfig {
 export function createAuthRoutes(config: AuthRoutesConfig): Hono {
   const { basePath } = config
   const app = new Hono()
-  const adminUsers = config.adminUsers as PgTableWithColumns
+  const adminTable = config.adminUsers
+  const cols = getTableColumns(config.adminUsers)
 
   app.get('/login', async (c) => {
     const csrfToken = await setCsrfCookie(c, config.sessionSecret)
@@ -57,8 +55,8 @@ export function createAuthRoutes(config: AuthRoutesConfig): Hono {
 
     const [row] = await config.db
       .select()
-      .from(adminUsers)
-      .where(eq(adminUsers.email, email))
+      .from(adminTable)
+      .where(eq(cols.email!, email))
       .limit(1)
 
     const admin = row as Record<string, unknown> | undefined

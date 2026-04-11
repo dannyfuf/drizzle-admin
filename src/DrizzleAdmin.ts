@@ -1,7 +1,5 @@
 import { Hono } from "hono";
-import { eq } from "drizzle-orm";
-import type { Table } from "drizzle-orm";
-import type { PgColumn, PgTable, TableConfig } from "drizzle-orm/pg-core";
+import { eq, getTableColumns } from "drizzle-orm";
 import type { DrizzleAdminConfig } from "@/config.ts";
 import { validateAdminUsersTable } from "@/auth/contract.ts";
 import { postgresqlAdapter } from "@/dialects/postgresql.ts";
@@ -13,8 +11,6 @@ import { authMiddleware } from "@/auth/middleware.ts";
 import { loginPage } from "@/views/login.ts";
 import { hashPassword } from "@/auth/password.ts";
 import { adminUrl } from "@/utils/url.ts";
-
-type PgTableWithColumns = PgTable<TableConfig> & Record<string, PgColumn>;
 
 /**
  * The main admin panel class that sets up routes, authentication, and CRUD
@@ -147,12 +143,13 @@ export class DrizzleAdmin {
   ): Promise<void> {
     const { email, password, ...extra } = params;
     const db = this.config.db;
-    const adminUsers = this.config.adminUsers as PgTableWithColumns;
+    const adminTable = this.config.adminUsers;
+    const cols = getTableColumns(this.config.adminUsers);
 
     const [existing] = await db
       .select()
-      .from(adminUsers)
-      .where(eq(adminUsers.email, email))
+      .from(adminTable)
+      .where(eq(cols.email!, email))
       .limit(1);
 
     if (existing) {
@@ -162,7 +159,7 @@ export class DrizzleAdmin {
 
     const passwordHash = await hashPassword(password);
 
-    await db.insert(adminUsers).values({
+    await db.insert(adminTable).values({
       email,
       passwordHash,
       createdAt: new Date(),

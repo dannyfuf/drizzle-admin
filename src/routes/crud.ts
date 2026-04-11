@@ -1,10 +1,7 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import { eq, sql } from 'drizzle-orm'
-import type { PgColumn, PgTable, TableConfig } from 'drizzle-orm/pg-core'
+import { eq, getTableColumns, sql } from 'drizzle-orm'
 import type { AnyPgDatabase } from '@/types.ts'
-
-type PgTableWithColumns = PgTable<TableConfig> & Record<string, PgColumn>
 import type { ResourceDefinition } from '@/resources/types.ts'
 import type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'
 import { setFlash, getFlash } from '@/utils/flash.ts'
@@ -29,7 +26,8 @@ interface CrudRoutesConfig {
 export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   const { db, resource, adapter, sessionSecret, allResources, basePath } = config
   const app = new Hono()
-  const table = resource.table as PgTableWithColumns
+  const pgTable = resource.table
+  const cols = getTableColumns(resource.table)
   const columns = adapter.extractColumns(resource.table)
   const perPage = resource.options.index?.perPage ?? 20
 
@@ -38,10 +36,10 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     const page = parseInt(c.req.query('page') ?? '1', 10)
     const offset = (page - 1) * perPage
 
-    const [{ count }] = await db.select({ count: sql`count(*)` }).from(table)
+    const [{ count }] = await db.select({ count: sql`count(*)` }).from(pgTable)
     const totalPages = Math.ceil(Number(count) / perPage)
 
-    const records = await db.select().from(table).limit(perPage).offset(offset)
+    const records = await db.select().from(pgTable).limit(perPage).offset(offset)
 
     const flash = getFlash(c)
     const admin = getAdmin(c)
@@ -101,7 +99,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     const values = parseFormValues(body, columns, resource.options.permitParams)
 
     try {
-      const [created] = await db.insert(table).values(values).returning()
+      const [created] = await db.insert(pgTable).values(values).returning()
       setFlash(c, 'success', `${resource.displayName} created successfully.`)
       return c.redirect(adminUrl(basePath, `/${resource.routePath}/${created.id}`))
     } catch (err) {
@@ -114,7 +112,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   // GET /:id - Show
   app.get('/:id', async (c) => {
     const id = c.req.param('id')
-    const [record] = await db.select().from(table).where(eq(table.id, id)).limit(1)
+    const [record] = await db.select().from(pgTable).where(eq(cols.id!, id)).limit(1)
 
     if (!record) {
       return c.html(render404(resource, basePath), 404)
@@ -147,7 +145,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   // GET /:id/edit - Edit form
   app.get('/:id/edit', async (c) => {
     const id = c.req.param('id')
-    const [record] = await db.select().from(table).where(eq(table.id, id)).limit(1)
+    const [record] = await db.select().from(pgTable).where(eq(cols.id!, id)).limit(1)
 
     if (!record) {
       return c.html(render404(resource, basePath), 404)
@@ -194,7 +192,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     values.updatedAt = new Date()
 
     try {
-      await db.update(table).set(values).where(eq(table.id, id))
+      await db.update(pgTable).set(values).where(eq(cols.id!, id))
       setFlash(c, 'success', `${resource.displayName} updated successfully.`)
       return c.redirect(adminUrl(basePath, `/${resource.routePath}/${id}`))
     } catch (err) {
@@ -208,7 +206,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     const id = c.req.param('id')
 
     try {
-      await db.delete(table).where(eq(table.id, id))
+      await db.delete(pgTable).where(eq(cols.id!, id))
       setFlash(c, 'success', `${resource.displayName} deleted successfully.`)
       return c.redirect(adminUrl(basePath, `/${resource.routePath}`))
     } catch (err) {
