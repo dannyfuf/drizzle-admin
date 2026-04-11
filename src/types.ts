@@ -1,18 +1,19 @@
-import type { Column, Table } from 'drizzle-orm'
-import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
+import type { Column } from 'drizzle-orm'
+import type { PgDatabase } from 'drizzle-orm/pg-core'
 import type { PgTable } from 'drizzle-orm/pg-core'
 
-/** Any Drizzle table — used when the specific column types don't matter. */
-export type AnyTable = Table
-
-/** Any PostgreSQL table — needed for db operations like `.from()`, `.insert()`. */
+/** Any PostgreSQL table — used when the specific column types don't matter. */
 export type AnyPgTable = PgTable
 
 /**
  * Any PostgreSQL database instance.
  * Uses the widest possible type so consumers don't need to know driver details.
+ * The `any` for query result HKT and schema generics is intentional — drizzle-admin
+ * performs generic CRUD operations and does not depend on the specific driver or
+ * schema type parameters.
  */
-export type AnyPgDatabase = PgDatabase<PgQueryResultHKT, Record<string, unknown>>
+// deno-lint-ignore no-explicit-any
+export type AnyPgDatabase = PgDatabase<any, any>
 
 /** Any Drizzle column — used in dialect adapters when iterating columns. */
 export type AnyDrizzleColumn = Column
