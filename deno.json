@@ -1,6 +1,6 @@
 {
   "name": "@dafu/drizzle-admin",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A server-rendered admin panel builder for Drizzle ORM with authentication, CRUD, and custom actions.",
   "license": "MIT",
   "exports": {
