@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { validateResources } from '@/resources/loader.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
+import type { Table } from 'drizzle-orm'
 
 function makeResource(overrides: Partial<ResourceDefinition> = {}): ResourceDefinition {
   return {
-    table: {},
+    table: {} as Table,
     tableName: 'cards',
     routePath: 'cards',
     displayName: 'Card',

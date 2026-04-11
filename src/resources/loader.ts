@@ -49,7 +49,7 @@ export async function loadResources(
         continue
       }
 
-      const tableName = getTableName(exported.table as any)
+      const tableName = getTableName(exported.table)
       const routePath = tableNameToRoutePath(tableName)
       const displayName = tableNameToDisplayName(tableName)
 

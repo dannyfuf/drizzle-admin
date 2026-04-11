@@ -1,11 +1,11 @@
-import { getTableName } from 'drizzle-orm'
+import { getTableName, type Table } from 'drizzle-orm'
 
 export function tableNameToRoutePath(tableName: string): string {
   return tableName.replace(/_/g, '-')
 }
 
-export function getTableSqlName(table: unknown): string {
-  return getTableName(table as any)
+export function getTableSqlName(table: Table): string {
+  return getTableName(table)
 }
 
 export function tableNameToDisplayName(tableName: string): string {
