@@ -79,4 +79,35 @@ describe('DrizzleAdmin', () => {
     const admin = new DrizzleAdmin(makeConfig())
     expect(admin.getResources()).toEqual([])
   })
+
+  describe('basePath validation', () => {
+    it('accepts valid basePath with leading slash', () => {
+      expect(() => new DrizzleAdmin(makeConfig({ basePath: '/admin' }))).not.toThrow()
+    })
+
+    it('normalizes trailing slash', () => {
+      const admin = new DrizzleAdmin(makeConfig({ basePath: '/admin/' }))
+      expect(admin).toBeInstanceOf(DrizzleAdmin)
+    })
+
+    it('accepts empty basePath', () => {
+      expect(() => new DrizzleAdmin(makeConfig({ basePath: '' }))).not.toThrow()
+    })
+
+    it('accepts undefined basePath (defaults to empty)', () => {
+      expect(() => new DrizzleAdmin(makeConfig({ basePath: undefined }))).not.toThrow()
+    })
+
+    it('throws when basePath is missing leading slash', () => {
+      expect(() => new DrizzleAdmin(makeConfig({ basePath: 'admin' }))).toThrow(
+        'basePath must start with "/"'
+      )
+    })
+
+    it('throws when basePath contains double slashes', () => {
+      expect(() => new DrizzleAdmin(makeConfig({ basePath: '//admin' }))).toThrow(
+        'basePath must not contain "//"'
+      )
+    })
+  })
 })

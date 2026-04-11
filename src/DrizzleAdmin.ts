@@ -52,8 +52,16 @@ export class DrizzleAdmin {
     this.config = config;
     this.app = new Hono();
 
-    // Normalize basePath: strip trailing slash, keep leading slash (or empty)
+    // Normalize and validate basePath
     const raw = config.basePath ?? '';
+    if (raw) {
+      if (!raw.startsWith('/')) {
+        throw new Error(`basePath must start with "/". Got: "${raw}"`);
+      }
+      if (raw.includes('//')) {
+        throw new Error(`basePath must not contain "//". Got: "${raw}"`);
+      }
+    }
     this.basePath = raw.endsWith('/') ? raw.slice(0, -1) : raw;
 
     validateAdminUsersTable(config.adminUsers);
