@@ -1,10 +1,11 @@
-import { getTableName, type Table } from 'drizzle-orm'
+import { getTableName } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 
 export function tableNameToRoutePath(tableName: string): string {
   return tableName.replace(/_/g, '-')
 }
 
-export function getTableSqlName(table: Table): string {
+export function getTableSqlName(table: PgTable): string {
   return getTableName(table)
 }
 

@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { layout, groupResourcesForSidebar } from '@/views/layout.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 
 function makeResource(overrides: Partial<ResourceDefinition> = {}): ResourceDefinition {
   return {
-    table: {} as Table,
+    table: {} as PgTable,
     tableName: 'cards',
     routePath: 'cards',
     displayName: 'Card',

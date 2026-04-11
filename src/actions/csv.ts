@@ -18,7 +18,6 @@
  */
 
 import type { Context } from 'hono'
-import type { Table } from 'drizzle-orm'
 import { getTableName } from 'drizzle-orm'
 import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyPgDatabase } from '@/types.ts'
@@ -34,13 +33,12 @@ import type { CollectionAction } from '@/resources/types.ts'
  * @param table - A Drizzle ORM table object to export records from.
  * @returns A {@link CollectionAction} that triggers a CSV file download.
  */
-export function createCsvExportAction(table: Table): CollectionAction {
+export function createCsvExportAction(table: PgTable): CollectionAction {
   return {
     name: 'Export CSV',
     handler: async (_c: Context, db: AnyPgDatabase) => {
       const tableName = getTableName(table)
-      const pgTable = table as PgTable
-      const records: Record<string, unknown>[] = await db.select().from(pgTable)
+      const records: Record<string, unknown>[] = await db.select().from(table)
 
       if (records.length === 0) {
         return new Response('No records to export', {

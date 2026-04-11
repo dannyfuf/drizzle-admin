@@ -1,5 +1,5 @@
 import type { Context } from 'hono'
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyPgDatabase } from '@/types.ts'
 
 /** Configuration for selecting which columns to display. */
@@ -60,8 +60,8 @@ export interface ResourceOptions {
 
 /** A fully resolved resource definition used internally by DrizzleAdmin. */
 export interface ResourceDefinition {
-  /** The Drizzle ORM table object. */
-  table: Table
+  /** The Drizzle ORM PostgreSQL table object. */
+  table: PgTable
   /** The SQL table name. */
   tableName: string
   /** The URL path segment for this resource. */

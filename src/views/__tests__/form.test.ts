@@ -3,7 +3,7 @@ import { formView, isAutoManaged } from '@/views/form.ts'
 import { styles } from '@/views/styles.ts'
 import type { ColumnMeta } from '@/dialects/types.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 
 function makeColumn(overrides: Partial<ColumnMeta> = {}): ColumnMeta {
   return {
@@ -19,7 +19,7 @@ function makeColumn(overrides: Partial<ColumnMeta> = {}): ColumnMeta {
 
 function makeResource(overrides: Partial<ResourceDefinition> = {}): ResourceDefinition {
   return {
-    table: {} as Table,
+    table: {} as PgTable,
     tableName: 'cards',
     routePath: 'cards',
     displayName: 'Card',

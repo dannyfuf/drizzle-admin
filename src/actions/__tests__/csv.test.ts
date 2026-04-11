@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyPgDatabase } from '@/types.ts'
 import type { Context } from 'hono'
 
@@ -9,7 +9,7 @@ vi.mock('drizzle-orm', () => ({
 
 import { createCsvExportAction } from '@/actions/csv.ts'
 
-const fakeTable = { _name: 'test_table' } as unknown as Table
+const fakeTable = { _name: 'test_table' } as unknown as PgTable
 
 function makeMockDb(records: Record<string, unknown>[]): AnyPgDatabase {
   return {

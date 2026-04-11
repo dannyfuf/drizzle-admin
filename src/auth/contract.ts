@@ -1,8 +1,9 @@
-import { getTableColumns, type Table } from 'drizzle-orm'
+import { getTableColumns } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 
 const REQUIRED_COLUMNS = ['id', 'email', 'passwordHash', 'createdAt', 'updatedAt'] as const
 
-export function validateAdminUsersTable(table: Table): void {
+export function validateAdminUsersTable(table: PgTable): void {
   const columns = getTableColumns(table)
   const columnNames = Object.keys(columns)
 

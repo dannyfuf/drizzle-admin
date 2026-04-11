@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyPgDatabase } from '@/types.ts'
 import type { DrizzleAdminConfig } from '@/config.ts'
 
@@ -43,7 +43,7 @@ function makeConfig(overrides: Partial<DrizzleAdminConfig> = {}): DrizzleAdminCo
   return {
     db: {} as AnyPgDatabase,
     dialect: 'postgresql',
-    adminUsers: makeAdminUsers() as unknown as Table,
+    adminUsers: makeAdminUsers() as unknown as PgTable,
     sessionSecret: 'test-secret',
     resourcesDir: './resources',
     ...overrides,

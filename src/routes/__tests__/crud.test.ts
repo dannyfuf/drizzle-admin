@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { parseFormValues, render404 } from '@/routes/crud.ts'
 import type { ColumnMeta } from '@/dialects/types.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 
 function makeColumn(overrides: Partial<ColumnMeta> = {}): ColumnMeta {
   return {
@@ -18,7 +18,7 @@ function makeColumn(overrides: Partial<ColumnMeta> = {}): ColumnMeta {
 
 function makeResource(overrides: Partial<ResourceDefinition> = {}): ResourceDefinition {
   return {
-    table: {} as Table,
+    table: {} as PgTable,
     tableName: 'cards',
     routePath: 'cards',
     displayName: 'Card',

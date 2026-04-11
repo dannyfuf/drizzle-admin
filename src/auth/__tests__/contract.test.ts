@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 
 // Mock drizzle-orm's getTableColumns
 vi.mock('drizzle-orm', () => ({
@@ -20,7 +20,7 @@ describe('validateAdminUsersTable', () => {
       },
     }
 
-    expect(() => validateAdminUsersTable(table as unknown as Table)).not.toThrow()
+    expect(() => validateAdminUsersTable(table as unknown as PgTable)).not.toThrow()
   })
 
   it('throws when missing a required column', () => {
@@ -33,7 +33,7 @@ describe('validateAdminUsersTable', () => {
       },
     }
 
-    expect(() => validateAdminUsersTable(table as unknown as Table)).toThrow('passwordHash')
+    expect(() => validateAdminUsersTable(table as unknown as PgTable)).toThrow('passwordHash')
   })
 
   it('error message includes found columns', () => {
@@ -44,6 +44,6 @@ describe('validateAdminUsersTable', () => {
       },
     }
 
-    expect(() => validateAdminUsersTable(table as unknown as Table)).toThrow('id, email')
+    expect(() => validateAdminUsersTable(table as unknown as PgTable)).toThrow('id, email')
   })
 })

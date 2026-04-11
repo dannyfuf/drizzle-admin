@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { Hono } from 'hono'
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyPgDatabase } from '@/types.ts'
 import type { DrizzleAdminConfig } from '@/config.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
@@ -22,7 +22,7 @@ const mockPostsTable = {
 }
 
 const postsResource: ResourceDefinition = {
-  table: mockPostsTable as unknown as Table,
+  table: mockPostsTable as unknown as PgTable,
   tableName: 'posts',
   routePath: 'posts',
   displayName: 'Post',
@@ -120,7 +120,7 @@ function makeConfig(overrides: Partial<DrizzleAdminConfig> = {}): DrizzleAdminCo
   return {
     db: makeMockDb(),
     dialect: 'postgresql',
-    adminUsers: makeAdminUsers() as unknown as Table,
+    adminUsers: makeAdminUsers() as unknown as PgTable,
     sessionSecret: SESSION_SECRET,
     resourcesDir: './resources',
     ...overrides,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 
 vi.mock('drizzle-orm', () => ({
   getTableColumns: (table: Record<string, unknown>) => (table as Record<string, unknown>)._columns,
@@ -7,8 +7,8 @@ vi.mock('drizzle-orm', () => ({
 
 import { postgresqlAdapter } from '@/dialects/postgresql.ts'
 
-function makeTable(columns: Record<string, unknown>): Table {
-  return { _columns: columns } as unknown as Table
+function makeTable(columns: Record<string, unknown>): PgTable {
+  return { _columns: columns } as unknown as PgTable
 }
 
 function makeColumn(overrides: Record<string, unknown> = {}) {

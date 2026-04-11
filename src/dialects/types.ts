@@ -16,12 +16,12 @@ export interface ColumnMeta {
   enumValues?: string[]
 }
 
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 
 /** Adapter interface for extracting column metadata from Drizzle tables for a specific SQL dialect. */
 export interface DialectAdapter {
   /** The SQL dialect name. */
   name: 'postgresql' | 'mysql' | 'sqlite'
   /** Extracts column metadata from a Drizzle table definition. */
-  extractColumns(table: Table): ColumnMeta[]
+  extractColumns(table: PgTable): ColumnMeta[]
 }

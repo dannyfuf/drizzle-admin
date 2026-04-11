@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { defineConfig } from '@/config.ts'
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyPgDatabase } from '@/types.ts'
 
 describe('defineConfig', () => {
@@ -8,7 +8,7 @@ describe('defineConfig', () => {
     const config = {
       db: {} as AnyPgDatabase,
       dialect: 'postgresql' as const,
-      adminUsers: { id: {}, email: {}, passwordHash: {}, createdAt: {}, updatedAt: {} } as unknown as Table,
+      adminUsers: { id: {}, email: {}, passwordHash: {}, createdAt: {}, updatedAt: {} } as unknown as PgTable,
       sessionSecret: 'secret',
       resourcesDir: './resources',
     }
@@ -20,7 +20,7 @@ describe('defineConfig', () => {
     const config = {
       db: { fake: true } as unknown as AnyPgDatabase,
       dialect: 'postgresql' as const,
-      adminUsers: { id: {}, email: {}, passwordHash: {}, createdAt: {}, updatedAt: {} } as unknown as Table,
+      adminUsers: { id: {}, email: {}, passwordHash: {}, createdAt: {}, updatedAt: {} } as unknown as PgTable,
       sessionSecret: 'my-secret',
       resourcesDir: '/path/to/resources',
       port: 4000,

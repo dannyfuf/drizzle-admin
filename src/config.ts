@@ -1,8 +1,8 @@
-import type { Table } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyPgDatabase } from '@/types.ts'
 
 /** Configuration options for a DrizzleAdmin instance. */
-export interface DrizzleAdminConfig<TAdminUsers extends Table = Table> {
+export interface DrizzleAdminConfig<TAdminUsers extends PgTable = PgTable> {
   /** The Drizzle ORM database instance. */
   db: AnyPgDatabase
   /** The SQL dialect to use. Currently only `"postgresql"` is supported. */
@@ -25,7 +25,7 @@ export interface DrizzleAdminConfig<TAdminUsers extends Table = Table> {
  * @param config - The admin panel configuration.
  * @returns The same configuration object, typed correctly.
  */
-export function defineConfig<T extends Table>(
+export function defineConfig<T extends PgTable>(
   config: DrizzleAdminConfig<T>
 ): DrizzleAdminConfig<T> {
   return config

@@ -1,10 +1,11 @@
-import { getTableColumns, type Column, type Table } from 'drizzle-orm'
+import { getTableColumns, type Column } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 import type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'
 
 export const postgresqlAdapter: DialectAdapter = {
   name: 'postgresql',
 
-  extractColumns(table: Table): ColumnMeta[] {
+  extractColumns(table: PgTable): ColumnMeta[] {
     const columns = getTableColumns(table)
 
     return Object.entries(columns).map(([name, column]) => ({
