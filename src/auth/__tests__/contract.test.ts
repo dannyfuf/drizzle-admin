@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
+import type { Table } from 'drizzle-orm'
 
 // Mock drizzle-orm's getTableColumns
 vi.mock('drizzle-orm', () => ({
-  getTableColumns: (table: any) => table._columns,
+  getTableColumns: (table: Record<string, unknown>) => (table as Record<string, unknown>)._columns,
 }))
 
 import { validateAdminUsersTable } from '@/auth/contract.ts'
@@ -19,7 +20,7 @@ describe('validateAdminUsersTable', () => {
       },
     }
 
-    expect(() => validateAdminUsersTable(table)).not.toThrow()
+    expect(() => validateAdminUsersTable(table as unknown as Table)).not.toThrow()
   })
 
   it('throws when missing a required column', () => {
@@ -32,7 +33,7 @@ describe('validateAdminUsersTable', () => {
       },
     }
 
-    expect(() => validateAdminUsersTable(table)).toThrow('passwordHash')
+    expect(() => validateAdminUsersTable(table as unknown as Table)).toThrow('passwordHash')
   })
 
   it('error message includes found columns', () => {
@@ -43,6 +44,6 @@ describe('validateAdminUsersTable', () => {
       },
     }
 
-    expect(() => validateAdminUsersTable(table)).toThrow('id, email')
+    expect(() => validateAdminUsersTable(table as unknown as Table)).toThrow('id, email')
   })
 })

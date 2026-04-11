@@ -1,9 +1,9 @@
-import { getTableColumns } from 'drizzle-orm'
+import { getTableColumns, type Table } from 'drizzle-orm'
 
 const REQUIRED_COLUMNS = ['id', 'email', 'passwordHash', 'createdAt', 'updatedAt'] as const
 
-export function validateAdminUsersTable(table: unknown): void {
-  const columns = getTableColumns(table as any)
+export function validateAdminUsersTable(table: Table): void {
+  const columns = getTableColumns(table)
   const columnNames = Object.keys(columns)
 
   for (const required of REQUIRED_COLUMNS) {
