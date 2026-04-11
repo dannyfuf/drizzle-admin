@@ -122,6 +122,26 @@ describe('parseFormValues', () => {
     expect(result.title).toBeNull()
   })
 
+  it('skips updatedAt columns', () => {
+    const columns = [
+      makeColumn({ name: 'updatedAt', dataType: 'timestamp', hasDefault: true }),
+      makeColumn({ name: 'title' }),
+    ]
+    const result = parseFormValues({ updatedAt: '2024-01-01T12:00:00', title: 'Hello' }, columns)
+    expect(result).not.toHaveProperty('updatedAt')
+    expect(result.title).toBe('Hello')
+  })
+
+  it('skips updated_at columns', () => {
+    const columns = [
+      makeColumn({ name: 'updated_at', dataType: 'timestamp', hasDefault: true }),
+      makeColumn({ name: 'title' }),
+    ]
+    const result = parseFormValues({ updated_at: '2024-01-01T12:00:00', title: 'Hello' }, columns)
+    expect(result).not.toHaveProperty('updated_at')
+    expect(result.title).toBe('Hello')
+  })
+
   it('respects permitParams whitelist', () => {
     const columns = [
       makeColumn({ name: 'title' }),

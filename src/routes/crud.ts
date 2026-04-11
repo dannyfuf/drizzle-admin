@@ -225,6 +225,7 @@ export function parseFormValues(body: Record<string, string | File>, columns: Co
   for (const col of columns) {
     if (col.isPrimaryKey) continue
     if (col.name === 'createdAt' || col.name === 'created_at') continue
+    if (col.name === 'updatedAt' || col.name === 'updated_at') continue
     if (permitParams && !permitParams.includes(col.name)) continue
 
     const rawValue = body[col.name]
