@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { PgTable } from 'drizzle-orm/pg-core'
-import type { AnyPgDatabase } from '@/types.ts'
-import type { DrizzleAdminConfig } from '@/config.ts'
+import type { AnyKnexDatabase, AnyPgDatabase } from '@/types.ts'
+import type { DrizzleBackendConfig } from '@/config.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
+import { defineKnexAdminUsers } from '@/resources/define.ts'
 
 const loaderMocks = vi.hoisted(() => ({
   loadResourcesMock: vi.fn<() => Promise<{ resources: ResourceDefinition[]; errors: string[] }>>(
@@ -13,6 +14,7 @@ const loaderMocks = vi.hoisted(() => ({
 
 vi.mock('drizzle-orm', () => ({
   getTableColumns: (table: Record<string, unknown>) => (table as Record<string, unknown>)._columns ?? {},
+  getTableName: () => 'posts',
   eq: () => {},
   and: () => ({}),
   ilike: () => ({}),
@@ -50,7 +52,7 @@ function makeAdminUsers() {
   }
 }
 
-function makeConfig(overrides: Partial<DrizzleAdminConfig> = {}): DrizzleAdminConfig {
+function makeConfig(overrides: Partial<DrizzleBackendConfig> = {}): DrizzleBackendConfig {
   return {
     db: {} as AnyPgDatabase,
     dialect: 'postgresql',
@@ -76,6 +78,19 @@ describe('DrizzleAdmin', () => {
     expect(() => {
       new DrizzleAdmin(makeConfig({ dialect: 'mysql' }))
     }).toThrow('not yet supported')
+  })
+
+  it('throws clearly when Knex uses an unsupported dialect', () => {
+    expect(() => {
+      new DrizzleAdmin({
+        backend: 'knex',
+        db: {} as AnyKnexDatabase,
+        dialect: 'sqlite',
+        adminUsers: makeKnexAdminUsers(),
+        sessionSecret: 'test-secret',
+        resourcesDir: './resources',
+      })
+    }).toThrow('Knex backend only supports dialect "postgresql"')
   })
 
   it('throws when admin users table is missing required columns', () => {
@@ -141,6 +156,11 @@ describe('DrizzleAdmin', () => {
         tableName: 'posts',
         routePath: 'posts',
         displayName: 'Post',
+        primaryKey: 'id',
+        columns: [
+          { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+          { name: 'title', sqlName: 'title', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+        ],
         options: {
           index: {
             filters: ['missing'],
@@ -154,4 +174,86 @@ describe('DrizzleAdmin', () => {
       await expect(admin.initialize()).rejects.toThrow('Invalid resource configuration')
     })
   })
+
+  describe('seed with Knex', () => {
+    it('inserts admin users using SQL column names', async () => {
+      const db = new SeedKnex()
+      const admin = new DrizzleAdmin({
+        backend: 'knex',
+        db: db.instance,
+        dialect: 'postgresql',
+        adminUsers: makeKnexAdminUsers(),
+        sessionSecret: 'test-secret',
+        resourcesDir: './resources',
+      })
+
+      await admin.seed({ email: 'admin@test.com', password: 'password' })
+
+      const insertCall = db.calls.find((call) => call.method === 'insert')
+      expect(insertCall?.args[0]).toMatchObject({
+        email: 'admin@test.com',
+        password_hash: expect.any(String),
+        created_at: expect.any(Date),
+        updated_at: expect.any(Date),
+      })
+    })
+
+    it('skips seeding when a Knex admin already exists', async () => {
+      const db = new SeedKnex()
+      db.firstRow = { id: 1, email: 'admin@test.com', password_hash: 'hash' }
+      const admin = new DrizzleAdmin({
+        backend: 'knex',
+        db: db.instance,
+        dialect: 'postgresql',
+        adminUsers: makeKnexAdminUsers(),
+        sessionSecret: 'test-secret',
+        resourcesDir: './resources',
+      })
+
+      await admin.seed({ email: 'admin@test.com', password: 'password' })
+
+      expect(db.calls.some((call) => call.method === 'insert')).toBe(false)
+    })
+  })
 })
+
+function makeKnexAdminUsers() {
+  return defineKnexAdminUsers('admin_users', [
+    { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+    { name: 'email', sqlName: 'email', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+    { name: 'passwordHash', sqlName: 'password_hash', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+    { name: 'createdAt', sqlName: 'created_at', dataType: 'timestamp', isNullable: false, isPrimaryKey: false, hasDefault: true },
+    { name: 'updatedAt', sqlName: 'updated_at', dataType: 'timestamp', isNullable: false, isPrimaryKey: false, hasDefault: true },
+  ])
+}
+
+class SeedKnex {
+  calls: Array<{ method: string; args: unknown[] }> = []
+  firstRow: Record<string, unknown> | undefined
+
+  instance = (() => new SeedQuery(this)) as unknown as AnyKnexDatabase
+}
+
+class SeedQuery {
+  constructor(private readonly db: SeedKnex) {}
+
+  select(...args: unknown[]) {
+    this.db.calls.push({ method: 'select', args })
+    return this
+  }
+
+  where(...args: unknown[]) {
+    this.db.calls.push({ method: 'where', args })
+    return this
+  }
+
+  first() {
+    this.db.calls.push({ method: 'first', args: [] })
+    return Promise.resolve(this.db.firstRow)
+  }
+
+  insert(values: Record<string, unknown>) {
+    this.db.calls.push({ method: 'insert', args: [values] })
+    return Promise.resolve(1)
+  }
+}

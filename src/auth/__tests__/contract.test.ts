@@ -6,7 +6,7 @@ vi.mock('drizzle-orm', () => ({
   getTableColumns: (table: Record<string, unknown>) => (table as Record<string, unknown>)._columns,
 }))
 
-import { validateAdminUsersTable } from '@/auth/contract.ts'
+import { validateAdminUsersColumns, validateAdminUsersTable } from '@/auth/contract.ts'
 
 describe('validateAdminUsersTable', () => {
   it('passes for valid table with all required columns', () => {
@@ -45,5 +45,21 @@ describe('validateAdminUsersTable', () => {
     }
 
     expect(() => validateAdminUsersTable(table as unknown as PgTable)).toThrow('id, email')
+  })
+})
+
+describe('validateAdminUsersColumns', () => {
+  it('validates explicit Knex admin-user metadata column names', () => {
+    expect(() => validateAdminUsersColumns([
+      'id',
+      'email',
+      'passwordHash',
+      'createdAt',
+      'updatedAt',
+    ])).not.toThrow()
+  })
+
+  it('throws when explicit metadata is missing required logical columns', () => {
+    expect(() => validateAdminUsersColumns(['id', 'email'])).toThrow('passwordHash')
   })
 })

@@ -1,17 +1,20 @@
 import { Hono } from "hono";
-import { eq, getTableColumns } from "drizzle-orm";
-import type { DrizzleAdminConfig } from "@/config.ts";
-import { validateAdminUsersTable } from "@/auth/contract.ts";
-import { postgresqlAdapter } from "@/dialects/postgresql.ts";
+import type { PgTable } from "drizzle-orm/pg-core";
+import type { Knex } from "knex";
+import type { AdminBackend } from "@/backends/types.ts";
+import { createDrizzleBackend } from "@/backends/drizzle.ts";
+import { createKnexBackend } from "@/backends/knex.ts";
+import type { DrizzleAdminConfig, KnexBackendConfig } from "@/config.ts";
 import { validateDeclaredFilters } from "@/resources/filters.ts";
 import { loadResources, validateResources } from "@/resources/loader.ts";
-import type { ResourceDefinition } from "@/resources/types.ts";
+import type { KnexTableDefinition, ResourceDefinition } from "@/resources/types.ts";
 import { createAuthRoutes } from "@/routes/auth.ts";
 import { createCrudRoutes } from "@/routes/crud.ts";
 import { authMiddleware } from "@/auth/middleware.ts";
 import { loginPage } from "@/views/login.ts";
 import { hashPassword } from "@/auth/password.ts";
 import { adminUrl } from "@/utils/url.ts";
+import type { AnyPgDatabase } from "@/types.ts";
 
 /**
  * The main admin panel class that sets up routes, authentication, and CRUD
@@ -41,13 +44,15 @@ export interface DrizzleAdminHandler {
 export class DrizzleAdmin {
   private config: DrizzleAdminConfig;
   private app: Hono;
-  private resources: ResourceDefinition[] = [];
+  private resources: AdminResourceDefinition[] = [];
   private basePath: string;
+  private backend: ActiveBackend;
 
   /** Creates a new DrizzleAdmin instance with the given configuration. */
   constructor(config: DrizzleAdminConfig) {
     this.config = config;
     this.app = new Hono();
+    this.backend = createBackend(config);
 
     // Normalize and validate basePath
     const raw = config.basePath ?? '';
@@ -61,16 +66,12 @@ export class DrizzleAdmin {
     }
     this.basePath = raw.endsWith('/') ? raw.slice(0, -1) : raw;
 
-    validateAdminUsersTable(config.adminUsers);
-
-    if (config.dialect !== "postgresql") {
-      throw new Error(`Dialect "${config.dialect}" is not yet supported`);
-    }
+    this.backend.validateAdminUsersTable(config.adminUsers);
   }
 
   /** Loads resource definitions from the configured `resourcesDir` and validates them. */
   async initialize(): Promise<void> {
-    const { resources, errors } = await loadResources(this.config.resourcesDir);
+    const { resources, errors } = await loadResources(this.config.resourcesDir, this.backend);
 
     if (errors.length > 0) {
       for (const error of errors) {
@@ -83,7 +84,7 @@ export class DrizzleAdmin {
 
     const validationErrors = validateResources(resources);
     const filterValidationErrors = resources.flatMap((resource) =>
-      validateDeclaredFilters(resource, postgresqlAdapter.extractColumns(resource.table)),
+      validateDeclaredFilters(resource, resource.columns),
     );
     const allValidationErrors = [...validationErrors, ...filterValidationErrors];
     if (allValidationErrors.length > 0) {
@@ -100,15 +101,13 @@ export class DrizzleAdmin {
   }
 
   /** Returns the loaded resource definitions. */
-  getResources(): ResourceDefinition[] {
+  getResources(): AdminResourceDefinition[] {
     return this.resources;
   }
 
   private setupRoutes(): void {
-    const adapter = postgresqlAdapter;
-
     const authRoutes = createAuthRoutes({
-      db: this.config.db,
+      backend: this.backend,
       adminUsers: this.config.adminUsers,
       sessionSecret: this.config.sessionSecret,
       basePath: this.basePath,
@@ -127,9 +126,8 @@ export class DrizzleAdmin {
 
     for (const resource of this.resources) {
       const crudRoutes = createCrudRoutes({
-        db: this.config.db,
+        backend: this.backend,
         resource,
-        adapter,
         sessionSecret: this.config.sessionSecret,
         allResources: this.resources,
         basePath: this.basePath,
@@ -147,15 +145,9 @@ export class DrizzleAdmin {
     params: { email: string; password: string } & Record<string, unknown>,
   ): Promise<void> {
     const { email, password, ...extra } = params;
-    const db = this.config.db;
     const adminTable = this.config.adminUsers;
-    const cols = getTableColumns(this.config.adminUsers);
 
-    const [existing] = await db
-      .select()
-      .from(adminTable)
-      .where(eq(cols.email!, email))
-      .limit(1);
+    const existing = await this.backend.findAdminByEmail(adminTable, email);
 
     if (existing) {
       console.log(`Admin user "${email}" already exists, skipping seed.`);
@@ -164,7 +156,7 @@ export class DrizzleAdmin {
 
     const passwordHash = await hashPassword(password);
 
-    await db.insert(adminTable).values({
+    await this.backend.insertAdminUser(adminTable, {
       email,
       passwordHash,
       createdAt: new Date(),
@@ -227,4 +219,29 @@ export class DrizzleAdmin {
       });
     }
   }
+}
+
+type ActiveTable = PgTable | KnexTableDefinition
+type ActiveDatabase = AnyPgDatabase | Knex
+type ActiveBackend = AdminBackend<ActiveDatabase, ActiveTable>
+type AdminResourceDefinition = ResourceDefinition<ActiveTable, ActiveDatabase>
+
+function createBackend(config: DrizzleAdminConfig): ActiveBackend {
+  if (isKnexConfig(config)) {
+    if (config.dialect !== "postgresql") {
+      throw new Error(`Knex backend only supports dialect "postgresql". Got: "${config.dialect}".`)
+    }
+
+    return createKnexBackend(config.db) as ActiveBackend
+  }
+
+  if (config.dialect !== "postgresql") {
+    throw new Error(`Dialect "${config.dialect}" is not yet supported`)
+  }
+
+  return createDrizzleBackend(config.db) as ActiveBackend
+}
+
+function isKnexConfig(config: DrizzleAdminConfig): config is KnexBackendConfig {
+  return config.backend === 'knex'
 }

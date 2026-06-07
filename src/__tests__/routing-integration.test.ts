@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { Hono } from 'hono'
 import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyPgDatabase } from '@/types.ts'
-import type { DrizzleAdminConfig } from '@/config.ts'
+import type { DrizzleBackendConfig } from '@/config.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 import { createToken } from '@/auth/jwt.ts'
 
@@ -26,6 +26,13 @@ const postsResource: ResourceDefinition = {
   tableName: 'posts',
   routePath: 'posts',
   displayName: 'Post',
+  primaryKey: 'id',
+  columns: [
+    { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+    { name: 'title', sqlName: 'title', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+    { name: 'createdAt', sqlName: 'created_at', dataType: 'timestamp', isNullable: false, isPrimaryKey: false, hasDefault: true },
+    { name: 'updatedAt', sqlName: 'updated_at', dataType: 'timestamp', isNullable: false, isPrimaryKey: false, hasDefault: true },
+  ],
   options: {
     index: {
       filters: ['title'],
@@ -36,6 +43,7 @@ const postsResource: ResourceDefinition = {
 vi.mock('drizzle-orm', () => ({
   getTableColumns: (table: Record<string, unknown>) =>
     (table as Record<string, unknown>)._columns ?? {},
+  getTableName: () => 'posts',
   eq: () => {},
   and: () => ({}),
   ilike: () => ({}),
@@ -125,7 +133,7 @@ function makeMockDb() {
   } as unknown as AnyPgDatabase
 }
 
-function makeConfig(overrides: Partial<DrizzleAdminConfig> = {}): DrizzleAdminConfig {
+function makeConfig(overrides: Partial<DrizzleBackendConfig> = {}): DrizzleBackendConfig {
   return {
     db: makeMockDb(),
     dialect: 'postgresql',

@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyPgDatabase } from '@/types.ts'
-import type { DrizzleAdminConfig } from '@/config.ts'
+import type { DrizzleBackendConfig } from '@/config.ts'
 
 vi.mock('drizzle-orm', () => ({
   getTableColumns: (table: Record<string, unknown>) => (table as Record<string, unknown>)._columns ?? {},
+  getTableName: () => 'posts',
   eq: () => {},
   and: () => ({}),
   ilike: () => ({}),
@@ -42,7 +43,7 @@ function makeAdminUsers() {
   }
 }
 
-function makeConfig(overrides: Partial<DrizzleAdminConfig> = {}): DrizzleAdminConfig {
+function makeConfig(overrides: Partial<DrizzleBackendConfig> = {}): DrizzleBackendConfig {
   return {
     db: {} as AnyPgDatabase,
     dialect: 'postgresql',
