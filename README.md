@@ -1,6 +1,6 @@
 # DrizzleAdmin
 
-A server-rendered admin panel for [Drizzle ORM](https://orm.drizzle.team/) and PostgreSQL-backed [Knex](https://knexjs.org/) applications inspired by RoR [Active Admin](https://activeadmin.info/). Provides automatic CRUD interfaces for your database tables with minimal configuration.
+A server-rendered admin panel for [Drizzle ORM](https://orm.drizzle.team/), PostgreSQL-backed [Knex](https://knexjs.org/), and [Persistence ORM](https://github.com/dannyfuf/persistence) applications inspired by RoR [Active Admin](https://activeadmin.info/). Provides automatic CRUD interfaces for your database tables with minimal configuration.
 
 - Zero frontend build step - server-rendered HTML with Tailwind CSS via CDN
 - Dark mode UI inspired by shadcn
@@ -10,7 +10,7 @@ A server-rendered admin panel for [Drizzle ORM](https://orm.drizzle.team/) and P
 - Mount into existing Hono or Express apps, or run standalone
 - Sidebar folder grouping for organizing resources
 - Works with Node.js and Deno
-- PostgreSQL support for Drizzle and Knex (more dialects planned)
+- PostgreSQL support for Drizzle, Knex, and Persistence ORM (more dialects planned)
 
 ## Installation
 
@@ -46,6 +46,12 @@ Knex support is optional. If you use Knex, install it in your application too:
 
 ```bash
 pnpm add knex pg
+```
+
+Persistence support is optional. If `@dannyfuf/persistence` is not available from your registry, install it from the private GitHub repo over SSH:
+
+```bash
+pnpm add git+ssh://git@github.com/dannyfuf/persistence.git
 ```
 
 ## Quick Start
@@ -202,16 +208,99 @@ await admin.seed({ email: 'admin@example.com', password: 'changeme' })
 await admin.start()
 ```
 
+## Persistence ORM Quick Start
+
+Persistence support is PostgreSQL-only. DrizzleAdmin reads table names, primary keys, column types, nullability, defaults, and enum values from Persistence generated schema metadata, so Persistence resources do not accept hand-written column arrays.
+
+### 1. Configure Persistence first
+
+```ts
+// persistence.ts
+import knex from 'knex'
+import { Model } from '@dannyfuf/persistence'
+import { persistenceSchema } from './generated/persistenceSchema'
+
+export const connection = knex({
+  client: 'pg',
+  connection: process.env.DATABASE_URL,
+})
+
+Model.configure({ connection, schema: persistenceSchema })
+```
+
+### 2. Define admin user and resource models
+
+```ts
+// models.ts
+import { Model, defineModel } from '@dannyfuf/persistence'
+
+class AdminUserRecord extends Model<'admin_users'> {
+  static tableName = 'admin_users' as const
+}
+
+class UserRecord extends Model<'users'> {
+  static tableName = 'users' as const
+}
+
+export const AdminUser = defineModel(AdminUserRecord)
+export const User = defineModel(UserRecord)
+```
+
+Persistence admin-user tables use database column names directly and must include `id`, `email`, `password_hash`, `created_at`, and `updated_at`. DrizzleAdmin normalizes `password_hash` to `passwordHash` internally for authentication.
+
+### 3. Create Persistence resource files
+
+```ts
+// admin/resources/users.ts
+import { definePersistenceResource } from 'drizzle-admin'
+import { createCsvExportAction } from 'drizzle-admin/actions/csv'
+import { User } from '../../models'
+
+export default definePersistenceResource(User, {
+  permitParams: ['email', 'name'],
+  index: {
+    filters: ['email'],
+  },
+  collectionActions: [
+    createCsvExportAction(User),
+  ],
+})
+```
+
+### 4. Configure Persistence mode
+
+```ts
+// admin/index.ts
+import '../persistence'
+import { DrizzleAdmin, defineConfig, definePersistenceAdminUsers } from 'drizzle-admin'
+import { AdminUser } from '../models'
+
+const admin = new DrizzleAdmin(
+  defineConfig({
+    backend: 'persistence',
+    dialect: 'postgresql',
+    adminUsers: definePersistenceAdminUsers(AdminUser),
+    sessionSecret: process.env.ADMIN_SESSION_SECRET!,
+    resourcesDir: './admin/resources',
+  })
+)
+
+await admin.seed({ email: 'admin@example.com', password: 'changeme' })
+await admin.start()
+```
+
+Call `Model.configure({ connection, schema })` before `DrizzleAdmin.build()` or `DrizzleAdmin.start()`. Regenerate your Persistence schema after migrations so `persistenceSchema` includes `columnMetadata`; DrizzleAdmin uses that generated metadata as the source of truth for forms, filters, formatting, CSV export, and CRUD.
+
 ## Configuration
 
 ### `defineConfig(options)`
 
 | Option | Type | Required | Default | Description |
 |--------|------|----------|---------|-------------|
-| `db` | Drizzle DB or Knex instance | Yes | - | Your configured database connection |
+| `db` | Drizzle DB or Knex instance | Drizzle/Knex only | - | Your configured database connection. Persistence uses `Model.configure()` instead. |
 | `dialect` | `'postgresql'` | Yes | - | Database dialect (only PostgreSQL supported currently) |
-| `adminUsers` | Drizzle table or Knex metadata | Yes | - | Table for admin user authentication |
-| `backend` | `'drizzle' \| 'knex'` | No | `'drizzle'` | Use `'knex'` for Knex mode |
+| `adminUsers` | Drizzle table, Knex metadata, or Persistence repository factory | Yes | - | Table/model for admin user authentication |
+| `backend` | `'drizzle' \| 'knex' \| 'persistence'` | No | `'drizzle'` | Use `'knex'` for Knex mode or `'persistence'` for Persistence ORM mode |
 | `sessionSecret` | `string` | Yes | - | Secret key for signing JWT tokens (use a strong random string) |
 | `resourcesDir` | `string` | Yes | - | Path to directory containing resource definition files |
 | `port` | `number` | No | `3001` | Port to run the admin server on |
@@ -337,6 +426,21 @@ export default defineKnexResource(postsTable, {
 ```
 
 The same resource options are available for Drizzle and Knex resources. Knex column `dataType` values should use the admin metadata types: `text`, `integer`, `boolean`, `enum`, `timestamp`, or `json`.
+
+### Persistence Resource
+
+Persistence resources use `definePersistenceResource()` with a repository factory returned by Persistence `defineModel()`:
+
+```ts
+import { definePersistenceResource } from 'drizzle-admin'
+import { User } from '../models'
+
+export default definePersistenceResource(User, {
+  index: { filters: ['email'] },
+})
+```
+
+Do not pass column metadata. Column names and admin metadata come from the generated Persistence schema and use database column names directly, including `snake_case` columns such as `created_at`.
 
 ### Resource with Options
 
@@ -517,9 +621,15 @@ For Knex resources, pass the same `KnexTableDefinition` used by `defineKnexResou
 createCsvExportAction(postsTable)
 ```
 
+For Persistence resources, pass the same repository factory used by `definePersistenceResource()`:
+
+```ts
+createCsvExportAction(User)
+```
+
 ## Supported Column Types
 
-DrizzleAdmin automatically maps Drizzle column types to appropriate form inputs. Knex users provide the same admin metadata type explicitly:
+DrizzleAdmin automatically maps Drizzle column types to appropriate form inputs. Knex users provide the same admin metadata type explicitly, and Persistence users get it from generated `columnMetadata`:
 
 | Drizzle Type | Admin Input | Notes |
 |-------------|-------------|-------|
@@ -847,6 +957,14 @@ Creates Knex admin-user table metadata. The logical column names must include `i
 ### `defineKnexResource(table, options?)`
 
 Creates a Knex resource definition for DrizzleAdmin to load. Must be the default export of a file in your `resourcesDir`.
+
+### `definePersistenceAdminUsers(repositoryFactory)`
+
+Marks a Persistence repository factory as the admin-user model. The underlying table must have `id`, `email`, `password_hash`, `created_at`, and `updated_at` columns.
+
+### `definePersistenceResource(repositoryFactory, options?)`
+
+Creates a Persistence resource definition for DrizzleAdmin to load. Must be the default export of a file in your `resourcesDir`. Column metadata is inferred from Persistence generated schema metadata.
 
 ### `createCsvExportAction(table)`
 
