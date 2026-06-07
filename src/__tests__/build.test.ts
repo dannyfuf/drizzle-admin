@@ -6,6 +6,9 @@ import type { DrizzleAdminConfig } from '@/config.ts'
 vi.mock('drizzle-orm', () => ({
   getTableColumns: (table: Record<string, unknown>) => (table as Record<string, unknown>)._columns ?? {},
   eq: () => {},
+  and: () => ({}),
+  ilike: () => ({}),
+  sql: (strings: TemplateStringsArray) => strings.join(''),
 }))
 
 vi.mock('@/resources/loader.ts', () => ({

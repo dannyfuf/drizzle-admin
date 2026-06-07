@@ -1,16 +1,27 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyPgDatabase } from '@/types.ts'
 import type { DrizzleAdminConfig } from '@/config.ts'
+import type { ResourceDefinition } from '@/resources/types.ts'
+
+const loaderMocks = vi.hoisted(() => ({
+  loadResourcesMock: vi.fn<() => Promise<{ resources: ResourceDefinition[]; errors: string[] }>>(
+    async () => ({ resources: [], errors: [] }),
+  ),
+  validateResourcesMock: vi.fn(() => []),
+}))
 
 vi.mock('drizzle-orm', () => ({
   getTableColumns: (table: Record<string, unknown>) => (table as Record<string, unknown>)._columns ?? {},
   eq: () => {},
+  and: () => ({}),
+  ilike: () => ({}),
+  sql: (strings: TemplateStringsArray) => strings.join(''),
 }))
 
 vi.mock('@/resources/loader.ts', () => ({
-  loadResources: async () => ({ resources: [], errors: [] }),
-  validateResources: () => [],
+  loadResources: loaderMocks.loadResourcesMock,
+  validateResources: loaderMocks.validateResourcesMock,
 }))
 
 vi.mock('@/dialects/postgresql.ts', () => ({
@@ -51,6 +62,11 @@ function makeConfig(overrides: Partial<DrizzleAdminConfig> = {}): DrizzleAdminCo
 }
 
 describe('DrizzleAdmin', () => {
+  beforeEach(() => {
+    loaderMocks.loadResourcesMock.mockResolvedValue({ resources: [], errors: [] })
+    loaderMocks.validateResourcesMock.mockReturnValue([])
+  })
+
   it('creates instance successfully with valid config', () => {
     const admin = new DrizzleAdmin(makeConfig())
     expect(admin).toBeInstanceOf(DrizzleAdmin)
@@ -108,6 +124,34 @@ describe('DrizzleAdmin', () => {
       expect(() => new DrizzleAdmin(makeConfig({ basePath: '//admin' }))).toThrow(
         'basePath must not contain "//"'
       )
+    })
+  })
+
+  describe('initialize', () => {
+    it('fails fast for invalid declared filters', async () => {
+      const resource: ResourceDefinition = {
+        table: {
+          _columns: {
+            id: { name: 'id' },
+            title: { name: 'title' },
+          },
+          id: { name: 'id' },
+          title: { name: 'title' },
+        } as unknown as PgTable,
+        tableName: 'posts',
+        routePath: 'posts',
+        displayName: 'Post',
+        options: {
+          index: {
+            filters: ['missing'],
+          },
+        },
+      }
+
+      loaderMocks.loadResourcesMock.mockResolvedValue({ resources: [resource], errors: [] })
+
+      const admin = new DrizzleAdmin(makeConfig())
+      await expect(admin.initialize()).rejects.toThrow('Invalid resource configuration')
     })
   })
 })

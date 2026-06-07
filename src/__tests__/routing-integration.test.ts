@@ -26,13 +26,19 @@ const postsResource: ResourceDefinition = {
   tableName: 'posts',
   routePath: 'posts',
   displayName: 'Post',
-  options: {},
+  options: {
+    index: {
+      filters: ['title'],
+    },
+  },
 }
 
 vi.mock('drizzle-orm', () => ({
   getTableColumns: (table: Record<string, unknown>) =>
     (table as Record<string, unknown>)._columns ?? {},
   eq: () => {},
+  and: () => ({}),
+  ilike: () => ({}),
   sql: (strings: TemplateStringsArray) => strings.join(''),
 }))
 
@@ -105,6 +111,9 @@ function makeMockDb() {
       // If select is called with { count: ... }, return count result
       if (arg && typeof arg === 'object' && 'count' in arg) {
         chain.from = () => ({
+          where: () => ({
+            then: (resolve: (v: unknown) => void) => resolve([{ count: 1 }]),
+          }),
           then: (resolve: (v: unknown) => void) => resolve([{ count: 1 }]),
         })
       }
@@ -201,6 +210,18 @@ describe('Routing integration with basePath', () => {
       expect(res.status).toBe(200)
       const html = await res.text()
       expect(html).toContain('/admin/posts')
+    })
+
+    it('GET /admin/posts preserves declared filter state in the rendered page', async () => {
+      const cookie = await makeAuthCookie()
+      const res = await parentApp.request('/admin/posts?filter_title=Test', {
+        headers: { Cookie: cookie },
+      })
+
+      expect(res.status).toBe(200)
+      const html = await res.text()
+      expect(html).toContain('name="filter_title"')
+      expect(html).toContain('value="Test"')
     })
 
     it('GET /admin/posts/new returns 200 with create form', async () => {

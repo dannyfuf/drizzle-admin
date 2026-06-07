@@ -3,6 +3,7 @@ import { eq, getTableColumns } from "drizzle-orm";
 import type { DrizzleAdminConfig } from "@/config.ts";
 import { validateAdminUsersTable } from "@/auth/contract.ts";
 import { postgresqlAdapter } from "@/dialects/postgresql.ts";
+import { validateDeclaredFilters } from "@/resources/filters.ts";
 import { loadResources, validateResources } from "@/resources/loader.ts";
 import type { ResourceDefinition } from "@/resources/types.ts";
 import { createAuthRoutes } from "@/routes/auth.ts";
@@ -81,12 +82,16 @@ export class DrizzleAdmin {
     }
 
     const validationErrors = validateResources(resources);
-    if (validationErrors.length > 0) {
-      for (const error of validationErrors) {
+    const filterValidationErrors = resources.flatMap((resource) =>
+      validateDeclaredFilters(resource, postgresqlAdapter.extractColumns(resource.table)),
+    );
+    const allValidationErrors = [...validationErrors, ...filterValidationErrors];
+    if (allValidationErrors.length > 0) {
+      for (const error of allValidationErrors) {
         console.error(`[DrizzleAdmin] ${error}`);
       }
       throw new Error(
-        `Invalid resource configuration. ${validationErrors.length} error(s) found.`,
+        `Invalid resource configuration. ${allValidationErrors.length} error(s) found.`,
       );
     }
 
