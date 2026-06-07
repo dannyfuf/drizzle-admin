@@ -46,7 +46,7 @@ export async function loadResources<TableRef = PgTable, ActionDatabase = AnyPgDa
       if (!isResourceExport(exported)) {
         errors.push(
           `${file}: default export is not a valid resource. ` +
-          `Use defineResource() or defineKnexResource() to create the export.`
+          `Use defineResource(), defineKnexResource(), or definePersistenceResource() to create the export.`
         )
         continue
       }

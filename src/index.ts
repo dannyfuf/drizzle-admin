@@ -26,6 +26,8 @@ export {
   defineKnexAdminUsers,
   defineKnexResource,
   defineKnexTable,
+  definePersistenceAdminUsers,
+  definePersistenceResource,
   defineResource,
 } from '@/resources/define.ts'
 export { hashPassword } from '@/auth/password.ts'
@@ -36,14 +38,32 @@ export type {
   DrizzleAdminConfig,
   DrizzleBackendConfig,
   KnexBackendConfig,
+  PersistenceBackendConfig,
 } from '@/config.ts'
-export type { AnyKnexDatabase, AnyPgDatabase, AnyPgTable } from '@/types.ts'
+export type {
+  AnyKnexDatabase,
+  AnyPersistenceRecord,
+  AnyPgDatabase,
+  AnyPgTable,
+  PersistenceActionContext,
+  PersistenceAdvancedQuery,
+  PersistenceColumnDataType,
+  PersistenceColumnMetadata,
+  PersistenceModelInstance,
+  PersistenceModelMetadata,
+  PersistenceQueryBuilder,
+  PersistenceQueryChain,
+  PersistenceRepository,
+  PersistenceRepositoryFactory,
+  PersistenceResourceRef,
+} from '@/types.ts'
 export type {
   CollectionAction,
   DrizzleResourceOptions,
   KnexResourceOptions,
   KnexTableDefinition,
   MemberAction,
+  PersistenceResourceOptions,
   ResourceOptions,
 } from '@/resources/types.ts'
 export type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'
