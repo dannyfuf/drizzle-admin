@@ -1,15 +1,28 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { PgTable } from 'drizzle-orm/pg-core'
-import type { AnyPgDatabase } from '@/types.ts'
+import type { AnyKnexDatabase, AnyPgDatabase } from '@/types.ts'
 import type { Context } from 'hono'
+import type { KnexTableDefinition } from '@/resources/types.ts'
 
 vi.mock('drizzle-orm', () => ({
+  getTableColumns: (table: Record<string, unknown>) => (table as Record<string, unknown>)._columns ?? {},
   getTableName: () => 'test_table',
+  eq: () => {},
+  and: () => ({}),
+  ilike: () => ({}),
+  sql: (strings: TemplateStringsArray) => strings.join(''),
 }))
 
 import { createCsvExportAction } from '@/actions/csv.ts'
 
 const fakeTable = { _name: 'test_table' } as unknown as PgTable
+const fakeKnexTable: KnexTableDefinition = {
+  tableName: 'posts',
+  columns: [
+    { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+    { name: 'title', sqlName: 'post_title', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+  ],
+}
 
 function makeMockDb(records: Record<string, unknown>[]): AnyPgDatabase {
   return {
@@ -17,6 +30,12 @@ function makeMockDb(records: Record<string, unknown>[]): AnyPgDatabase {
       from: () => Promise.resolve(records),
     }),
   } as unknown as AnyPgDatabase
+}
+
+function makeMockKnex(records: Record<string, unknown>[]): AnyKnexDatabase {
+  return (() => ({
+    select: () => Promise.resolve(records),
+  })) as unknown as AnyKnexDatabase
 }
 
 describe('createCsvExportAction', () => {
@@ -103,5 +122,15 @@ describe('createCsvExportAction', () => {
 
     const lines = csv.split('\n')
     expect(lines[1]).toBe(',')
+  })
+
+  it('exports Knex records with logical column names', async () => {
+    const action = createCsvExportAction(fakeKnexTable)
+    const db = makeMockKnex([{ id: 1, post_title: 'Hello' }])
+    const response = await action.handler({} as unknown as Context, db) as Response
+    const csv = await response.text()
+
+    expect(response.headers.get('Content-Disposition')).toBe('attachment; filename="posts.csv"')
+    expect(csv.split('\n')).toEqual(['id,title', '1,Hello'])
   })
 })
