@@ -223,6 +223,10 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
   async function handleDelete(c: Context) {
     const id = c.req.param('id')
 
+    if (!id) {
+      return c.html(render404(resource, basePath), 404)
+    }
+
     try {
       await backend.delete(resource, id)
       setFlash(c, 'success', `${resource.displayName} deleted successfully.`)
