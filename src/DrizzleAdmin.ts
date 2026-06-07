@@ -4,7 +4,8 @@ import type { Knex } from "knex";
 import type { AdminBackend } from "@/backends/types.ts";
 import { createDrizzleBackend } from "@/backends/drizzle.ts";
 import { createKnexBackend } from "@/backends/knex.ts";
-import type { DrizzleAdminConfig, KnexBackendConfig } from "@/config.ts";
+import { createPersistenceBackend } from "@/backends/persistence.ts";
+import type { DrizzleAdminConfig, KnexBackendConfig, PersistenceBackendConfig } from "@/config.ts";
 import { validateDeclaredFilters } from "@/resources/filters.ts";
 import { loadResources, validateResources } from "@/resources/loader.ts";
 import type { KnexTableDefinition, ResourceDefinition } from "@/resources/types.ts";
@@ -14,7 +15,7 @@ import { authMiddleware } from "@/auth/middleware.ts";
 import { loginPage } from "@/views/login.ts";
 import { hashPassword } from "@/auth/password.ts";
 import { adminUrl } from "@/utils/url.ts";
-import type { AnyPgDatabase } from "@/types.ts";
+import type { AnyPgDatabase, PersistenceActionContext, PersistenceResourceRef } from "@/types.ts";
 
 /**
  * The main admin panel class that sets up routes, authentication, and CRUD
@@ -221,8 +222,8 @@ export class DrizzleAdmin {
   }
 }
 
-type ActiveTable = PgTable | KnexTableDefinition
-type ActiveDatabase = AnyPgDatabase | Knex
+type ActiveTable = PgTable | KnexTableDefinition | PersistenceResourceRef
+type ActiveDatabase = AnyPgDatabase | Knex | PersistenceActionContext
 type ActiveBackend = AdminBackend<ActiveDatabase, ActiveTable>
 type AdminResourceDefinition = ResourceDefinition<ActiveTable, ActiveDatabase>
 
@@ -235,6 +236,15 @@ function createBackend(config: DrizzleAdminConfig): ActiveBackend {
     return createKnexBackend(config.db) as ActiveBackend
   }
 
+  if (isPersistenceConfig(config)) {
+    const dialect = (config as { dialect: string }).dialect
+    if (dialect !== "postgresql") {
+      throw new Error(`Persistence backend only supports dialect "postgresql". Got: "${dialect}".`)
+    }
+
+    return createPersistenceBackend() as ActiveBackend
+  }
+
   if (config.dialect !== "postgresql") {
     throw new Error(`Dialect "${config.dialect}" is not yet supported`)
   }
@@ -244,4 +254,8 @@ function createBackend(config: DrizzleAdminConfig): ActiveBackend {
 
 function isKnexConfig(config: DrizzleAdminConfig): config is KnexBackendConfig {
   return config.backend === 'knex'
+}
+
+function isPersistenceConfig(config: DrizzleAdminConfig): config is PersistenceBackendConfig {
+  return config.backend === 'persistence'
 }

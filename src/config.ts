@@ -1,5 +1,5 @@
 import type { PgTable } from 'drizzle-orm/pg-core'
-import type { AnyKnexDatabase, AnyPgDatabase } from '@/types.ts'
+import type { AnyKnexDatabase, AnyPgDatabase, PersistenceResourceRef } from '@/types.ts'
 import type { KnexTableDefinition } from '@/resources/types.ts'
 
 export interface BaseAdminConfig {
@@ -35,10 +35,21 @@ export interface KnexBackendConfig extends BaseAdminConfig {
   adminUsers: KnexTableDefinition
 }
 
+/** Configuration options for Persistence ORM-backed PostgreSQL applications. */
+export interface PersistenceBackendConfig extends BaseAdminConfig {
+  /** Selects Persistence mode. */
+  backend: 'persistence'
+  /** Persistence is PostgreSQL-only. */
+  dialect: 'postgresql'
+  /** Persistence admin user repository factory, usually from `defineModel(AdminUserRecord)`. */
+  adminUsers: PersistenceResourceRef
+}
+
 /** Configuration options for a DrizzleAdmin instance. */
 export type DrizzleAdminConfig<TAdminUsers extends PgTable = PgTable> =
   | DrizzleBackendConfig<TAdminUsers>
   | KnexBackendConfig
+  | PersistenceBackendConfig
 
 /**
  * Type-safe helper for creating a DrizzleAdmin configuration object.
@@ -48,6 +59,7 @@ export type DrizzleAdminConfig<TAdminUsers extends PgTable = PgTable> =
  */
 export function defineConfig<T extends PgTable>(config: DrizzleBackendConfig<T>): DrizzleBackendConfig<T>
 export function defineConfig(config: KnexBackendConfig): KnexBackendConfig
+export function defineConfig(config: PersistenceBackendConfig): PersistenceBackendConfig
 export function defineConfig(config: DrizzleAdminConfig): DrizzleAdminConfig {
   return config
 }
