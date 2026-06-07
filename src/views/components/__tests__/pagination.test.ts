@@ -34,4 +34,17 @@ describe('renderPagination', () => {
     const html = renderPagination({ currentPage: 5, totalPages: 10, baseUrl: '/cards' })
     expect(html).toContain('...')
   })
+
+  it('preserves active filter params in page links', () => {
+    const html = renderPagination({
+      currentPage: 2,
+      totalPages: 3,
+      baseUrl: '/cards',
+      query: { filter_title: 'Hello', filter_featured: 'false' },
+    })
+
+    expect(html).toContain('filter_title=Hello')
+    expect(html).toContain('filter_featured=false')
+    expect(html).toContain('page=3')
+  })
 })

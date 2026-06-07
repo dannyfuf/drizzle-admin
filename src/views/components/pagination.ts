@@ -2,10 +2,11 @@ export interface PaginationProps {
   currentPage: number
   totalPages: number
   baseUrl: string
+  query?: Record<string, string>
 }
 
 export function renderPagination(props: PaginationProps): string {
-  const { currentPage, totalPages, baseUrl } = props
+  const { currentPage, totalPages, baseUrl, query } = props
 
   if (totalPages <= 1) return ''
 
@@ -41,7 +42,7 @@ export function renderPagination(props: PaginationProps): string {
       ? 'px-3 py-1 rounded bg-zinc-700 text-zinc-100'
       : 'px-3 py-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100'
 
-    return `<a href="${baseUrl}?page=${page}" class="${className}">${page}</a>`
+    return `<a href="${buildPaginationHref(baseUrl, page, query)}" class="${className}">${page}</a>`
   }).join('')
 
   const prevDisabled = currentPage === 1
@@ -50,7 +51,7 @@ export function renderPagination(props: PaginationProps): string {
   return `
     <nav class="flex items-center justify-center gap-1 mt-6" aria-label="Pagination">
       <a
-        href="${baseUrl}?page=${currentPage - 1}"
+        href="${buildPaginationHref(baseUrl, currentPage - 1, query)}"
         class="px-3 py-1 rounded ${prevDisabled ? 'text-zinc-600 pointer-events-none' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800'}"
         ${prevDisabled ? 'aria-disabled="true"' : ''}
       >
@@ -58,7 +59,7 @@ export function renderPagination(props: PaginationProps): string {
       </a>
       ${pageLinks}
       <a
-        href="${baseUrl}?page=${currentPage + 1}"
+        href="${buildPaginationHref(baseUrl, currentPage + 1, query)}"
         class="px-3 py-1 rounded ${nextDisabled ? 'text-zinc-600 pointer-events-none' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800'}"
         ${nextDisabled ? 'aria-disabled="true"' : ''}
       >
@@ -66,4 +67,10 @@ export function renderPagination(props: PaginationProps): string {
       </a>
     </nav>
   `
+}
+
+function buildPaginationHref(baseUrl: string, page: number, query: Record<string, string> = {}): string {
+  const searchParams = new URLSearchParams(query)
+  searchParams.set('page', String(page))
+  return `${baseUrl}?${searchParams.toString()}`
 }
