@@ -1,8 +1,16 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import { eq, getTableColumns, sql } from 'drizzle-orm'
-import type { AnyPgDatabase } from '@/types.ts'
+import { and, eq, getTableColumns, ilike, sql } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
+import type { AnyDrizzleColumn, AnyPgDatabase } from '@/types.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
+import {
+  buildFilterQuery,
+  getDeclaredFilters,
+  parseDeclaredFilterValues,
+  type DeclaredFilter,
+  type ParsedFilter,
+} from '@/resources/filters.ts'
 import type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'
 import { setFlash, getFlash } from '@/utils/flash.ts'
 import { setCsrfCookie, validateCsrf } from '@/auth/csrf.ts'
@@ -28,28 +36,38 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   const app = new Hono()
   const pgTable = resource.table
   const cols = getTableColumns(resource.table)
+  const filterableColumns = cols as Record<string, AnyDrizzleColumn>
   const columns = adapter.extractColumns(resource.table)
+  const declaredFilters = getDeclaredFilters(resource, columns)
   const perPage = resource.options.index?.perPage ?? 20
 
   // GET / - Index
   app.get('/', async (c) => {
-    const page = parseInt(c.req.query('page') ?? '1', 10)
+    const page = parsePageNumber(c.req.query('page'))
     const offset = (page - 1) * perPage
+    const filterState = buildIndexFilterState({
+      declaredFilters,
+      tableColumns: filterableColumns,
+      getQueryValue: (queryKey) => c.req.query(queryKey) ?? undefined,
+    })
 
-    const [{ count }] = await db.select({ count: sql`count(*)` }).from(pgTable)
+    const [{ count }] = await db.select({ count: sql`count(*)` }).from(pgTable).where(filterState.where)
     const totalPages = Math.ceil(Number(count) / perPage)
 
-    const records = await db.select().from(pgTable).limit(perPage).offset(offset)
+    const records = await db.select().from(pgTable).where(filterState.where).limit(perPage).offset(offset)
 
     const flash = getFlash(c)
     const admin = getAdmin(c)
     const csrfToken = await setCsrfCookie(c, sessionSecret)
+    const baseUrl = adminUrl(basePath, `/${resource.routePath}`)
 
     const content = indexView({
       resource,
       columns,
       records,
-      pagination: { currentPage: page, totalPages, baseUrl: adminUrl(basePath, `/${resource.routePath}`) },
+      filters: declaredFilters,
+      activeFilterQuery: filterState.activeFilterQuery,
+      pagination: { currentPage: page, totalPages, baseUrl, query: filterState.activeFilterQuery },
       csrfToken,
       basePath,
     })
@@ -228,6 +246,44 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   return app
 }
 
+export interface IndexFilterState {
+  activeFilters: ParsedFilter[]
+  activeFilterQuery: Record<string, string>
+  where: SQL | undefined
+}
+
+interface BuildIndexFilterStateOptions {
+  declaredFilters: DeclaredFilter[]
+  tableColumns: Record<string, AnyDrizzleColumn>
+  getQueryValue: (queryKey: string) => string | undefined
+}
+
+export function buildIndexFilterState(options: BuildIndexFilterStateOptions): IndexFilterState {
+  const { declaredFilters, tableColumns, getQueryValue } = options
+  const activeFilters = parseDeclaredFilterValues(declaredFilters, getQueryValue)
+  const conditions: SQL[] = []
+
+  for (const parsedFilter of activeFilters) {
+    const tableColumn = tableColumns[parsedFilter.filter.name]
+    if (!tableColumn) {
+      continue
+    }
+
+    conditions.push(buildFilterCondition(tableColumn, parsedFilter))
+  }
+
+  return {
+    activeFilters,
+    activeFilterQuery: buildFilterQuery(activeFilters),
+    where: conditions.length > 0 ? and(...conditions) : undefined,
+  }
+}
+
+export function parsePageNumber(rawValue: string | undefined): number {
+  const page = Number.parseInt(rawValue ?? '1', 10)
+  return Number.isNaN(page) || page < 1 ? 1 : page
+}
+
 export function parseFormValues(body: Record<string, string | File>, columns: ColumnMeta[], permitParams?: string[]): Record<string, unknown> {
   const values: Record<string, unknown> = {}
 
@@ -267,4 +323,12 @@ export function render404(resource: ResourceDefinition, basePath: string = ''): 
       <a href="${adminUrl(basePath, `/${resource.routePath}`)}" class="text-zinc-100 underline mt-4 inline-block">Back to list</a>
     </div>
   `
+}
+
+function buildFilterCondition(column: AnyDrizzleColumn, parsedFilter: ParsedFilter): SQL {
+  if (parsedFilter.filter.column.dataType === 'text') {
+    return ilike(column, `%${String(parsedFilter.value)}%`)
+  }
+
+  return eq(column, parsedFilter.value)
 }

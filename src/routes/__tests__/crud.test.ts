@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { parseFormValues, render404 } from '@/routes/crud.ts'
+import { buildIndexFilterState, parseFormValues, parsePageNumber, render404 } from '@/routes/crud.ts'
 import type { ColumnMeta } from '@/dialects/types.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 import type { PgTable } from 'drizzle-orm/pg-core'
+import type { DeclaredFilter } from '@/resources/filters.ts'
 
 function makeColumn(overrides: Partial<ColumnMeta> = {}): ColumnMeta {
   return {
@@ -23,6 +24,17 @@ function makeResource(overrides: Partial<ResourceDefinition> = {}): ResourceDefi
     routePath: 'cards',
     displayName: 'Card',
     options: {},
+    ...overrides,
+  }
+}
+
+function makeFilter(overrides: Partial<DeclaredFilter> = {}): DeclaredFilter {
+  const column = makeColumn({ name: 'title', dataType: 'text' })
+
+  return {
+    name: column.name,
+    queryKey: 'filter_title',
+    column,
     ...overrides,
   }
 }
@@ -172,5 +184,77 @@ describe('render404', () => {
     const html = render404(makeResource({ routePath: 'posts' }))
     expect(html).toContain('href="/posts"')
     expect(html).toContain('Back to list')
+  })
+})
+
+describe('parsePageNumber', () => {
+  it('defaults invalid pages to 1', () => {
+    expect(parsePageNumber(undefined)).toBe(1)
+    expect(parsePageNumber('abc')).toBe(1)
+    expect(parsePageNumber('0')).toBe(1)
+  })
+
+  it('parses valid positive page numbers', () => {
+    expect(parsePageNumber('3')).toBe(3)
+  })
+})
+
+describe('buildIndexFilterState', () => {
+  it('parses active filters and preserves them for pagination', () => {
+    const state = buildIndexFilterState({
+      declaredFilters: [
+        makeFilter(),
+        makeFilter({
+          name: 'featured',
+          queryKey: 'filter_featured',
+          column: makeColumn({ name: 'featured', dataType: 'boolean' }),
+        }),
+      ],
+      tableColumns: {
+        title: { name: 'title' } as never,
+        featured: { name: 'featured' } as never,
+      },
+      getQueryValue: (queryKey) => ({
+        filter_title: 'Hello',
+        filter_featured: 'false',
+        undeclared: 'ignored',
+      })[queryKey],
+    })
+
+    expect(state.activeFilters).toHaveLength(2)
+    expect(state.activeFilterQuery).toEqual({
+      filter_title: 'Hello',
+      filter_featured: 'false',
+    })
+    expect(state.where).toBeDefined()
+  })
+
+  it('drops blank and invalid filter values', () => {
+    const state = buildIndexFilterState({
+      declaredFilters: [
+        makeFilter({
+          name: 'views',
+          queryKey: 'filter_views',
+          column: makeColumn({ name: 'views', dataType: 'integer' }),
+        }),
+        makeFilter({
+          name: 'publishedAt',
+          queryKey: 'filter_publishedAt',
+          column: makeColumn({ name: 'publishedAt', dataType: 'timestamp' }),
+        }),
+      ],
+      tableColumns: {
+        views: { name: 'views' } as never,
+        publishedAt: { name: 'publishedAt' } as never,
+      },
+      getQueryValue: (queryKey) => ({
+        filter_views: '1.2',
+        filter_publishedAt: 'not-a-date',
+      })[queryKey],
+    })
+
+    expect(state.activeFilters).toEqual([])
+    expect(state.activeFilterQuery).toEqual({})
+    expect(state.where).toBeUndefined()
   })
 })
