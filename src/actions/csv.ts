@@ -21,8 +21,10 @@ import type { Context } from 'hono'
 import type { PgTable } from 'drizzle-orm/pg-core'
 import { createDrizzleBackend } from '@/backends/drizzle.ts'
 import { createKnexBackend } from '@/backends/knex.ts'
-import type { AnyKnexDatabase, AnyPgDatabase } from '@/types.ts'
-import { isKnexTableDefinition } from '@/resources/define.ts'
+import { createPersistenceBackend } from '@/backends/persistence.ts'
+import type { AnyKnexDatabase, AnyPgDatabase, PersistenceActionContext, PersistenceResourceRef } from '@/types.ts'
+import { isKnexTableDefinition, isResourceExport } from '@/resources/define.ts'
+import type { PersistenceResourceExport } from '@/resources/define.ts'
 import type { CollectionAction, KnexTableDefinition } from '@/resources/types.ts'
 
 /**
@@ -37,21 +39,53 @@ import type { CollectionAction, KnexTableDefinition } from '@/resources/types.ts
  */
 export function createCsvExportAction(table: PgTable): CollectionAction<AnyPgDatabase>
 export function createCsvExportAction(table: KnexTableDefinition): CollectionAction<AnyKnexDatabase>
+export function createCsvExportAction(table: PersistenceResourceRef): CollectionAction<PersistenceActionContext>
+export function createCsvExportAction(table: PersistenceResourceExport): CollectionAction<PersistenceActionContext>
 export function createCsvExportAction(
-  table: PgTable | KnexTableDefinition,
-): CollectionAction<AnyPgDatabase> | CollectionAction<AnyKnexDatabase> {
+  table: PgTable | KnexTableDefinition | PersistenceResourceRef | PersistenceResourceExport,
+): CollectionAction<AnyPgDatabase> | CollectionAction<AnyKnexDatabase> | CollectionAction<PersistenceActionContext> {
   return {
     name: 'Export CSV',
-    handler: async (_c: Context, db: AnyPgDatabase | AnyKnexDatabase) => {
+    handler: async (_c: Context, db: AnyPgDatabase | AnyKnexDatabase | PersistenceActionContext) => {
       if (isKnexTableDefinition(table)) {
         const backend = createKnexBackend(db as AnyKnexDatabase)
         return buildCsvResponse(backend.getTableName(table), await backend.exportAll(table))
       }
 
+      if (isPersistenceTableRef(table)) {
+        const backend = createPersistenceBackend()
+        const ref = getPersistenceRef(table)
+        const context = db as PersistenceActionContext
+        context.getRepository(ref)
+        return buildCsvResponse(backend.getTableName(ref), await backend.exportAll(ref))
+      }
+
+      const drizzleTable = table as PgTable
       const backend = createDrizzleBackend(db as AnyPgDatabase)
-      return buildCsvResponse(backend.getTableName(table), await backend.exportAll(table))
+      return buildCsvResponse(backend.getTableName(drizzleTable), await backend.exportAll(drizzleTable))
     },
   }
+}
+
+function isPersistenceTableRef(value: unknown): value is PersistenceResourceRef | PersistenceResourceExport {
+  if (isResourceExport(value)) {
+    return value.backend === 'persistence'
+  }
+
+  if (typeof value === 'function') {
+    return true
+  }
+
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'metadata' in value &&
+    'createBuilder' in value
+  )
+}
+
+function getPersistenceRef(table: PersistenceResourceRef | PersistenceResourceExport): PersistenceResourceRef {
+  return isResourceExport(table) ? table.table : table
 }
 
 function buildCsvResponse(tableName: string, records: Record<string, unknown>[]): Response {
