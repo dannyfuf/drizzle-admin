@@ -8,8 +8,8 @@ import { button, linkButton } from '@/views/components/button.ts'
 import { renderCollectionActions } from '@/views/components/actions.ts'
 import { adminUrl } from '@/utils/url.ts'
 
-export interface IndexViewProps {
-  resource: ResourceDefinition
+export interface IndexViewProps<TableRef = unknown, ActionDatabase = never> {
+  resource: ResourceDefinition<TableRef, ActionDatabase>
   columns: ColumnMeta[]
   records: Record<string, unknown>[]
   filters: DeclaredFilter[]
@@ -19,7 +19,7 @@ export interface IndexViewProps {
   basePath: string
 }
 
-export function indexView(props: IndexViewProps): string {
+export function indexView<TableRef, ActionDatabase>(props: IndexViewProps<TableRef, ActionDatabase>): string {
   const { resource, columns, records, filters, activeFilterQuery, pagination, csrfToken, basePath } = props
 
   const visibleColumns = getVisibleColumns(columns, resource.options.index)
@@ -59,7 +59,7 @@ export function indexView(props: IndexViewProps): string {
       .map(col => `<td class="${styles.tableCell}">${formatCellValue(record[col.name], col)}</td>`)
       .join('')
 
-    const id = record.id
+    const id = record[resource.primaryKey]
     const actions = `
       <td class="${styles.tableCell} text-right">
         <a href="${adminUrl(basePath, `/${resource.routePath}/${id}`)}" class="${styles.btnGhost} text-sm">View</a>
