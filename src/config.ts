@@ -1,14 +1,10 @@
 import type { PgTable } from 'drizzle-orm/pg-core'
-import type { AnyPgDatabase } from '@/types.ts'
+import type { AnyKnexDatabase, AnyPgDatabase } from '@/types.ts'
+import type { KnexTableDefinition } from '@/resources/types.ts'
 
-/** Configuration options for a DrizzleAdmin instance. */
-export interface DrizzleAdminConfig<TAdminUsers extends PgTable = PgTable> {
-  /** The Drizzle ORM database instance. */
-  db: AnyPgDatabase
+export interface BaseAdminConfig {
   /** The SQL dialect to use. Currently only `"postgresql"` is supported. */
   dialect: 'postgresql' | 'mysql' | 'sqlite'
-  /** The Drizzle table definition for admin users. */
-  adminUsers: TAdminUsers
   /** Secret used for signing JWT session tokens. */
   sessionSecret: string
   /** Path to the directory containing resource definition files. */
@@ -19,14 +15,39 @@ export interface DrizzleAdminConfig<TAdminUsers extends PgTable = PgTable> {
   basePath?: string
 }
 
+/** Configuration options for existing Drizzle ORM users. */
+export interface DrizzleBackendConfig<TAdminUsers extends PgTable = PgTable> extends BaseAdminConfig {
+  /** Backend mode. Omit for existing Drizzle configurations. */
+  backend?: 'drizzle'
+  /** The Drizzle ORM database instance. */
+  db: AnyPgDatabase
+  /** The Drizzle table definition for admin users. */
+  adminUsers: TAdminUsers
+}
+
+/** Configuration options for Knex-backed PostgreSQL applications. */
+export interface KnexBackendConfig extends BaseAdminConfig {
+  /** Selects Knex mode. */
+  backend: 'knex'
+  /** The Knex database instance. */
+  db: AnyKnexDatabase
+  /** Explicit metadata for the admin users table. */
+  adminUsers: KnexTableDefinition
+}
+
+/** Configuration options for a DrizzleAdmin instance. */
+export type DrizzleAdminConfig<TAdminUsers extends PgTable = PgTable> =
+  | DrizzleBackendConfig<TAdminUsers>
+  | KnexBackendConfig
+
 /**
  * Type-safe helper for creating a DrizzleAdmin configuration object.
  *
  * @param config - The admin panel configuration.
  * @returns The same configuration object, typed correctly.
  */
-export function defineConfig<T extends PgTable>(
-  config: DrizzleAdminConfig<T>
-): DrizzleAdminConfig<T> {
+export function defineConfig<T extends PgTable>(config: DrizzleBackendConfig<T>): DrizzleBackendConfig<T>
+export function defineConfig(config: KnexBackendConfig): KnexBackendConfig
+export function defineConfig(config: DrizzleAdminConfig): DrizzleAdminConfig {
   return config
 }

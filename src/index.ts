@@ -22,14 +22,27 @@
 
 export { DrizzleAdmin } from '@/DrizzleAdmin.ts'
 export { defineConfig } from '@/config.ts'
-export { defineResource } from '@/resources/define.ts'
+export {
+  defineKnexAdminUsers,
+  defineKnexResource,
+  defineKnexTable,
+  defineResource,
+} from '@/resources/define.ts'
 export { hashPassword } from '@/auth/password.ts'
 
 export type { DrizzleAdminHandler } from '@/DrizzleAdmin.ts'
-export type { DrizzleAdminConfig } from '@/config.ts'
-export type { AnyPgDatabase, AnyPgTable } from '@/types.ts'
+export type {
+  BaseAdminConfig,
+  DrizzleAdminConfig,
+  DrizzleBackendConfig,
+  KnexBackendConfig,
+} from '@/config.ts'
+export type { AnyKnexDatabase, AnyPgDatabase, AnyPgTable } from '@/types.ts'
 export type {
   CollectionAction,
+  DrizzleResourceOptions,
+  KnexResourceOptions,
+  KnexTableDefinition,
   MemberAction,
   ResourceOptions,
 } from '@/resources/types.ts'
