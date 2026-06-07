@@ -18,6 +18,7 @@ export interface ListRecordsOptions {
 export interface AdminBackend<ActionDatabase = unknown, TableRef = unknown> {
   name: string
   actionDatabase: ActionDatabase
+  getActionContext?(resource: ResourceDefinition<TableRef, ActionDatabase>): ActionDatabase
 
   getTableName(table: TableRef): string
   extractColumns(table: TableRef): ColumnMeta[]
