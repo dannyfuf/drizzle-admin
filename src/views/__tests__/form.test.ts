@@ -23,6 +23,8 @@ function makeResource(overrides: Partial<ResourceDefinition> = {}): ResourceDefi
     tableName: 'cards',
     routePath: 'cards',
     displayName: 'Card',
+    primaryKey: 'id',
+    columns: [],
     options: {},
     ...overrides,
   }

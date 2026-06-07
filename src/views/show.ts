@@ -7,17 +7,17 @@ import { renderMemberActions } from '@/views/components/actions.ts'
 import { confirmModal, modalTrigger } from '@/views/components/modal.ts'
 import { adminUrl } from '@/utils/url.ts'
 
-export interface ShowViewProps {
-  resource: ResourceDefinition
+export interface ShowViewProps<TableRef = unknown, ActionDatabase = never> {
+  resource: ResourceDefinition<TableRef, ActionDatabase>
   columns: ColumnMeta[]
   record: Record<string, unknown>
   csrfToken: string
   basePath: string
 }
 
-export function showView(props: ShowViewProps): { content: string; modals: string } {
+export function showView<TableRef, ActionDatabase>(props: ShowViewProps<TableRef, ActionDatabase>): { content: string; modals: string } {
   const { resource, columns, record, csrfToken, basePath } = props
-  const id = record.id
+  const id = record[resource.primaryKey]
 
   const visibleColumns = getVisibleColumns(columns, resource.options.show)
 

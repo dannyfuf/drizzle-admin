@@ -6,8 +6,8 @@ import { button, linkButton } from '@/views/components/button.ts'
 import { csrfInput } from '@/auth/csrf.ts'
 import { adminUrl } from '@/utils/url.ts'
 
-export interface FormViewProps {
-  resource: ResourceDefinition
+export interface FormViewProps<TableRef = unknown, ActionDatabase = never> {
+  resource: ResourceDefinition<TableRef, ActionDatabase>
   columns: ColumnMeta[]
   record?: Record<string, unknown>
   csrfToken: string
@@ -15,11 +15,11 @@ export interface FormViewProps {
   errors?: Record<string, string>
 }
 
-export function formView(props: FormViewProps): string {
+export function formView<TableRef, ActionDatabase>(props: FormViewProps<TableRef, ActionDatabase>): string {
   const { resource, columns, record, csrfToken, basePath, errors } = props
 
   const isEdit = !!record
-  const id = record?.id
+  const id = record?.[resource.primaryKey]
 
   const actionUrl = isEdit
     ? adminUrl(basePath, `/${resource.routePath}/${id}?_method=PUT`)
