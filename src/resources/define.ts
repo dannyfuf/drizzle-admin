@@ -1,12 +1,29 @@
 import type { PgTable } from 'drizzle-orm/pg-core'
-import type { ResourceOptions } from '@/resources/types.ts'
+import type { ColumnMeta } from '@/dialects/types.ts'
+import type {
+  DrizzleResourceOptions,
+  KnexResourceOptions,
+  KnexTableDefinition,
+  ResourceOptions,
+} from '@/resources/types.ts'
 
 /** The object returned by {@link defineResource}, used internally by the resource loader. */
-export interface ResourceExport {
+export interface DrizzleResourceExport {
   __drizzleAdminResource: true
+  backend: 'drizzle'
   table: PgTable
-  options: ResourceOptions
+  options: DrizzleResourceOptions
 }
+
+/** The object returned by {@link defineKnexResource}, used internally by the resource loader. */
+export interface KnexResourceExport {
+  __drizzleAdminResource: true
+  backend: 'knex'
+  table: KnexTableDefinition
+  options: KnexResourceOptions
+}
+
+export type ResourceExport = DrizzleResourceExport | KnexResourceExport
 
 /**
  * Creates a resource definition that registers a Drizzle table with DrizzleAdmin.
@@ -17,14 +34,45 @@ export interface ResourceExport {
  * @param options - Optional configuration for index, show, form views, and actions.
  * @returns A {@link ResourceExport} recognized by the resource loader.
  */
-export function defineResource(table: PgTable): ResourceExport
-export function defineResource(table: PgTable, options: ResourceOptions): ResourceExport
-export function defineResource(table: PgTable, options?: ResourceOptions): ResourceExport {
+export function defineResource(table: PgTable): DrizzleResourceExport
+export function defineResource(table: PgTable, options: DrizzleResourceOptions): DrizzleResourceExport
+export function defineResource(table: PgTable, options?: DrizzleResourceOptions): DrizzleResourceExport {
   return {
     __drizzleAdminResource: true,
+    backend: 'drizzle',
     table,
     options: options ?? {},
   }
+}
+
+export function defineKnexResource(table: KnexTableDefinition): KnexResourceExport
+export function defineKnexResource(table: KnexTableDefinition, options: KnexResourceOptions): KnexResourceExport
+export function defineKnexResource(tableName: string, columns: ColumnMeta[]): KnexResourceExport
+export function defineKnexResource(tableName: string, columns: ColumnMeta[], options: KnexResourceOptions): KnexResourceExport
+export function defineKnexResource(
+  tableOrName: KnexTableDefinition | string,
+  columnsOrOptions?: ColumnMeta[] | KnexResourceOptions,
+  maybeOptions?: KnexResourceOptions,
+): KnexResourceExport {
+  const table = typeof tableOrName === 'string'
+    ? defineKnexTable(tableOrName, columnsOrOptions as ColumnMeta[])
+    : validateKnexTableDefinition(tableOrName)
+  const options = typeof tableOrName === 'string' ? maybeOptions : columnsOrOptions as KnexResourceOptions | undefined
+
+  return {
+    __drizzleAdminResource: true,
+    backend: 'knex',
+    table,
+    options: options ?? {},
+  }
+}
+
+export function defineKnexAdminUsers(tableName: string, columns: ColumnMeta[]): KnexTableDefinition {
+  return defineKnexTable(tableName, columns)
+}
+
+export function defineKnexTable(tableName: string, columns: ColumnMeta[]): KnexTableDefinition {
+  return validateKnexTableDefinition({ tableName, columns })
 }
 
 /**
@@ -40,4 +88,65 @@ export function isResourceExport(value: unknown): value is ResourceExport {
     '__drizzleAdminResource' in value &&
     (value as ResourceExport).__drizzleAdminResource === true
   )
+}
+
+export function isKnexTableDefinition(value: unknown): value is KnexTableDefinition {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'tableName' in value &&
+    'columns' in value &&
+    typeof (value as KnexTableDefinition).tableName === 'string' &&
+    Array.isArray((value as KnexTableDefinition).columns)
+  )
+}
+
+export function validateKnexTableDefinition(table: KnexTableDefinition): KnexTableDefinition {
+  if (!table || typeof table.tableName !== 'string' || table.tableName.trim() === '') {
+    throw new Error('Knex table metadata must include a non-empty tableName.')
+  }
+
+  if (!Array.isArray(table.columns) || table.columns.length === 0) {
+    throw new Error(`Knex table "${table.tableName}" must declare at least one column.`)
+  }
+
+  for (const [index, column] of table.columns.entries()) {
+    validateKnexColumn(table.tableName, column, index)
+  }
+
+  if (!table.columns.some((column) => column.isPrimaryKey)) {
+    throw new Error(`Knex table "${table.tableName}" must declare a primary key column.`)
+  }
+
+  return table
+}
+
+function validateKnexColumn(tableName: string, column: ColumnMeta, index: number): void {
+  const label = column?.name ? `column "${column.name}"` : `column at index ${index}`
+
+  if (!column || typeof column !== 'object') {
+    throw new Error(`Knex table "${tableName}" ${label} must be an object.`)
+  }
+
+  if (typeof column.name !== 'string' || column.name.trim() === '') {
+    throw new Error(`Knex table "${tableName}" ${label} must include a non-empty name.`)
+  }
+
+  if (typeof column.sqlName !== 'string' || column.sqlName.trim() === '') {
+    throw new Error(`Knex table "${tableName}" column "${column.name}" must include a non-empty sqlName.`)
+  }
+
+  if (typeof column.dataType !== 'string' || column.dataType.trim() === '') {
+    throw new Error(`Knex table "${tableName}" column "${column.name}" must include a non-empty dataType.`)
+  }
+
+  for (const property of ['isNullable', 'isPrimaryKey', 'hasDefault'] as const) {
+    if (typeof column[property] !== 'boolean') {
+      throw new Error(`Knex table "${tableName}" column "${column.name}" must include boolean ${property}.`)
+    }
+  }
+
+  if (column.enumValues !== undefined && !Array.isArray(column.enumValues)) {
+    throw new Error(`Knex table "${tableName}" column "${column.name}" enumValues must be an array when provided.`)
+  }
 }
