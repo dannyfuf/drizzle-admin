@@ -1,21 +1,20 @@
 import { Hono } from 'hono'
+import type { AdminBackend } from '@/backends/types.ts'
 import type { ResourceDefinition, MemberAction, CollectionAction } from '@/resources/types.ts'
 import { validateCsrf } from '@/auth/csrf.ts'
 import { setFlash } from '@/utils/flash.ts'
 import { slugify } from '@/views/components/actions.ts'
 import { adminUrl } from '@/utils/url.ts'
 
-import type { AnyPgDatabase } from '@/types.ts'
-
-export interface ActionRoutesConfig {
-  db: AnyPgDatabase
-  resource: ResourceDefinition
+export interface ActionRoutesConfig<ActionDatabase = unknown, TableRef = unknown> {
+  backend: AdminBackend<ActionDatabase, TableRef>
+  resource: ResourceDefinition<TableRef, ActionDatabase>
   sessionSecret: string
   basePath: string
 }
 
-export function createActionRoutes(config: ActionRoutesConfig): Hono {
-  const { db, resource, sessionSecret, basePath } = config
+export function createActionRoutes<ActionDatabase = unknown, TableRef = unknown>(config: ActionRoutesConfig<ActionDatabase, TableRef>): Hono {
+  const { backend, resource, sessionSecret, basePath } = config
   const app = new Hono()
 
   // Member action routes: POST /:id/actions/:actionName
@@ -36,7 +35,7 @@ export function createActionRoutes(config: ActionRoutesConfig): Hono {
     }
 
     try {
-      await action.handler(id, db)
+      await action.handler(id, backend.actionDatabase)
       setFlash(c, 'success', `${action.name} completed successfully.`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
@@ -63,7 +62,7 @@ export function createActionRoutes(config: ActionRoutesConfig): Hono {
     }
 
     try {
-      const result = await action.handler(c, db)
+      const result = await action.handler(c, backend.actionDatabase)
 
       if (result instanceof Response) {
         return result
@@ -81,10 +80,16 @@ export function createActionRoutes(config: ActionRoutesConfig): Hono {
   return app
 }
 
-function findMemberAction(resource: ResourceDefinition, slugName: string): MemberAction | undefined {
+function findMemberAction<ActionDatabase>(
+  resource: ResourceDefinition<unknown, ActionDatabase>,
+  slugName: string,
+): MemberAction<ActionDatabase> | undefined {
   return resource.options.memberActions?.find(a => slugify(a.name) === slugName)
 }
 
-function findCollectionAction(resource: ResourceDefinition, slugName: string): CollectionAction | undefined {
+function findCollectionAction<ActionDatabase>(
+  resource: ResourceDefinition<unknown, ActionDatabase>,
+  slugName: string,
+): CollectionAction<ActionDatabase> | undefined {
   return resource.options.collectionActions?.find(a => slugify(a.name) === slugName)
 }

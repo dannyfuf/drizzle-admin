@@ -1,8 +1,6 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import { and, eq, getTableColumns, ilike, sql } from 'drizzle-orm'
-import type { SQL } from 'drizzle-orm'
-import type { AnyDrizzleColumn, AnyPgDatabase } from '@/types.ts'
+import type { AdminBackend } from '@/backends/types.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 import {
   buildFilterQuery,
@@ -11,7 +9,7 @@ import {
   type DeclaredFilter,
   type ParsedFilter,
 } from '@/resources/filters.ts'
-import type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'
+import type { ColumnMeta } from '@/dialects/types.ts'
 import { setFlash, getFlash } from '@/utils/flash.ts'
 import { setCsrfCookie, validateCsrf } from '@/auth/csrf.ts'
 import { layout } from '@/views/layout.ts'
@@ -22,22 +20,18 @@ import { createActionRoutes } from '@/routes/actions.ts'
 import { getAdmin } from '@/auth/middleware.ts'
 import { adminUrl } from '@/utils/url.ts'
 
-interface CrudRoutesConfig {
-  db: AnyPgDatabase
-  resource: ResourceDefinition
-  adapter: DialectAdapter
+interface CrudRoutesConfig<ActionDatabase = unknown, TableRef = unknown> {
+  backend: AdminBackend<ActionDatabase, TableRef>
+  resource: ResourceDefinition<TableRef, ActionDatabase>
   sessionSecret: string
-  allResources: ResourceDefinition[]
+  allResources: ResourceDefinition<TableRef, ActionDatabase>[]
   basePath: string
 }
 
-export function createCrudRoutes(config: CrudRoutesConfig): Hono {
-  const { db, resource, adapter, sessionSecret, allResources, basePath } = config
+export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(config: CrudRoutesConfig<ActionDatabase, TableRef>): Hono {
+  const { backend, resource, sessionSecret, allResources, basePath } = config
   const app = new Hono()
-  const pgTable = resource.table
-  const cols = getTableColumns(resource.table)
-  const filterableColumns = cols as Record<string, AnyDrizzleColumn>
-  const columns = adapter.extractColumns(resource.table)
+  const columns = resource.columns
   const declaredFilters = getDeclaredFilters(resource, columns)
   const perPage = resource.options.index?.perPage ?? 20
 
@@ -47,14 +41,17 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     const offset = (page - 1) * perPage
     const filterState = buildIndexFilterState({
       declaredFilters,
-      tableColumns: filterableColumns,
       getQueryValue: (queryKey) => c.req.query(queryKey) ?? undefined,
     })
 
-    const [{ count }] = await db.select({ count: sql`count(*)` }).from(pgTable).where(filterState.where)
-    const totalPages = Math.ceil(Number(count) / perPage)
+    const count = await backend.count(resource, filterState.activeFilters)
+    const totalPages = Math.ceil(count / perPage)
 
-    const records = await db.select().from(pgTable).where(filterState.where).limit(perPage).offset(offset)
+    const records = await backend.list(resource, {
+      filters: filterState.activeFilters,
+      limit: perPage,
+      offset,
+    })
 
     const flash = getFlash(c)
     const admin = getAdmin(c)
@@ -117,9 +114,9 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     const values = parseFormValues(body, columns, resource.options.permitParams)
 
     try {
-      const [created] = await db.insert(pgTable).values(values).returning()
+      const created = await backend.insert(resource, values)
       setFlash(c, 'success', `${resource.displayName} created successfully.`)
-      return c.redirect(adminUrl(basePath, `/${resource.routePath}/${created.id}`))
+      return c.redirect(adminUrl(basePath, `/${resource.routePath}/${created[resource.primaryKey]}`))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       setFlash(c, 'error', `Failed to create: ${message}`)
@@ -130,7 +127,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   // GET /:id - Show
   app.get('/:id', async (c) => {
     const id = c.req.param('id')
-    const [record] = await db.select().from(pgTable).where(eq(cols.id!, id)).limit(1)
+    const record = await backend.findById(resource, id)
 
     if (!record) {
       return c.html(render404(resource, basePath), 404)
@@ -163,7 +160,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
   // GET /:id/edit - Edit form
   app.get('/:id/edit', async (c) => {
     const id = c.req.param('id')
-    const [record] = await db.select().from(pgTable).where(eq(cols.id!, id)).limit(1)
+    const record = await backend.findById(resource, id)
 
     if (!record) {
       return c.html(render404(resource, basePath), 404)
@@ -207,10 +204,13 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
 
     const body = await c.req.parseBody()
     const values = parseFormValues(body, columns, resource.options.permitParams)
-    values.updatedAt = new Date()
+    const updatedAtColumn = columns.find((column) => column.name === 'updatedAt' || column.name === 'updated_at')
+    if (updatedAtColumn) {
+      values[updatedAtColumn.name] = new Date()
+    }
 
     try {
-      await db.update(pgTable).set(values).where(eq(cols.id!, id))
+      await backend.update(resource, id, values)
       setFlash(c, 'success', `${resource.displayName} updated successfully.`)
       return c.redirect(adminUrl(basePath, `/${resource.routePath}/${id}`))
     } catch (err) {
@@ -224,7 +224,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
     const id = c.req.param('id')
 
     try {
-      await db.delete(pgTable).where(eq(cols.id!, id))
+      await backend.delete(resource, id)
       setFlash(c, 'success', `${resource.displayName} deleted successfully.`)
       return c.redirect(adminUrl(basePath, `/${resource.routePath}`))
     } catch (err) {
@@ -236,7 +236,7 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
 
   // Mount action routes
   const actionRoutes = createActionRoutes({
-    db,
+    backend,
     resource,
     sessionSecret,
     basePath,
@@ -249,33 +249,20 @@ export function createCrudRoutes(config: CrudRoutesConfig): Hono {
 export interface IndexFilterState {
   activeFilters: ParsedFilter[]
   activeFilterQuery: Record<string, string>
-  where: SQL | undefined
 }
 
 interface BuildIndexFilterStateOptions {
   declaredFilters: DeclaredFilter[]
-  tableColumns: Record<string, AnyDrizzleColumn>
   getQueryValue: (queryKey: string) => string | undefined
 }
 
 export function buildIndexFilterState(options: BuildIndexFilterStateOptions): IndexFilterState {
-  const { declaredFilters, tableColumns, getQueryValue } = options
+  const { declaredFilters, getQueryValue } = options
   const activeFilters = parseDeclaredFilterValues(declaredFilters, getQueryValue)
-  const conditions: SQL[] = []
-
-  for (const parsedFilter of activeFilters) {
-    const tableColumn = tableColumns[parsedFilter.filter.name]
-    if (!tableColumn) {
-      continue
-    }
-
-    conditions.push(buildFilterCondition(tableColumn, parsedFilter))
-  }
 
   return {
     activeFilters,
     activeFilterQuery: buildFilterQuery(activeFilters),
-    where: conditions.length > 0 ? and(...conditions) : undefined,
   }
 }
 
@@ -315,7 +302,10 @@ export function parseFormValues(body: Record<string, string | File>, columns: Co
   return values
 }
 
-export function render404(resource: ResourceDefinition, basePath: string = ''): string {
+export function render404<TableRef, ActionDatabase>(
+  resource: ResourceDefinition<TableRef, ActionDatabase>,
+  basePath: string = '',
+): string {
   return `
     <div class="text-center py-12">
       <h2 class="text-xl font-semibold text-zinc-100">Not Found</h2>
@@ -323,12 +313,4 @@ export function render404(resource: ResourceDefinition, basePath: string = ''): 
       <a href="${adminUrl(basePath, `/${resource.routePath}`)}" class="text-zinc-100 underline mt-4 inline-block">Back to list</a>
     </div>
   `
-}
-
-function buildFilterCondition(column: AnyDrizzleColumn, parsedFilter: ParsedFilter): SQL {
-  if (parsedFilter.filter.column.dataType === 'text') {
-    return ilike(column, `%${String(parsedFilter.value)}%`)
-  }
-
-  return eq(column, parsedFilter.value)
 }

@@ -23,6 +23,8 @@ function makeResource(overrides: Partial<ResourceDefinition> = {}): ResourceDefi
     tableName: 'cards',
     routePath: 'cards',
     displayName: 'Card',
+    primaryKey: 'id',
+    columns: [],
     options: {},
     ...overrides,
   }
@@ -210,10 +212,6 @@ describe('buildIndexFilterState', () => {
           column: makeColumn({ name: 'featured', dataType: 'boolean' }),
         }),
       ],
-      tableColumns: {
-        title: { name: 'title' } as never,
-        featured: { name: 'featured' } as never,
-      },
       getQueryValue: (queryKey) => ({
         filter_title: 'Hello',
         filter_featured: 'false',
@@ -226,7 +224,6 @@ describe('buildIndexFilterState', () => {
       filter_title: 'Hello',
       filter_featured: 'false',
     })
-    expect(state.where).toBeDefined()
   })
 
   it('drops blank and invalid filter values', () => {
@@ -243,10 +240,6 @@ describe('buildIndexFilterState', () => {
           column: makeColumn({ name: 'publishedAt', dataType: 'timestamp' }),
         }),
       ],
-      tableColumns: {
-        views: { name: 'views' } as never,
-        publishedAt: { name: 'publishedAt' } as never,
-      },
       getQueryValue: (queryKey) => ({
         filter_views: '1.2',
         filter_publishedAt: 'not-a-date',
@@ -255,6 +248,5 @@ describe('buildIndexFilterState', () => {
 
     expect(state.activeFilters).toEqual([])
     expect(state.activeFilterQuery).toEqual({})
-    expect(state.where).toBeUndefined()
   })
 })
