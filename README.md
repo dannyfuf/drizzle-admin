@@ -254,6 +254,7 @@ export default defineResource(posts, {
   index: {
     perPage: 50,
     exclude: ['body'],        // hide 'body' column from the listing
+    filters: ['title', 'status'],
   },
   show: {
     exclude: ['internalNotes'],
@@ -297,6 +298,26 @@ When set, only the listed columns appear as editable fields. Auto-managed column
 | `perPage` | `number` | Records per page (default: 20) |
 | `columns` | `string[]` | Whitelist - only show these columns |
 | `exclude` | `string[]` | Blacklist - hide these columns |
+| `filters` | `string[]` | Optional, order-sensitive list of filterable columns |
+
+Filters are opt-in. When `index.filters` is omitted or set to `[]`, the index page renders no filter UI.
+
+```ts
+export default defineResource(posts, {
+  index: {
+    columns: ['id', 'title', 'status', 'featured'],
+    filters: ['title', 'status', 'featured'],
+  },
+})
+```
+
+Declared filters are rendered in the order provided and round-trip through the index URL as namespaced query params such as `filter_title`. Supported filter types are:
+
+- text: case-insensitive contains matching
+- integer: exact matching
+- boolean: exact matching
+- enum: exact matching
+- timestamp: exact matching
 
 #### `show` - Detail page
 
@@ -543,6 +564,7 @@ export default defineResource(posts, {
   index: {
     perPage: 25,
     exclude: ['body'],
+    filters: ['title', 'status', 'featured'],
   },
   memberActions: [
     {
