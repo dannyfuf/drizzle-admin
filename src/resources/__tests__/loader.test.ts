@@ -84,6 +84,36 @@ describe('loadResources', () => {
       await rm(resourcesDir, { recursive: true, force: true })
     }
   })
+
+  it('loads resources declared for the Persistence backend', async () => {
+    const resourcesDir = await mkdtemp(join(tmpdir(), 'drizzle-admin-resources-'))
+    const backend = {
+      name: 'persistence',
+      resolveResource: vi.fn(({ table, options }) => ({
+        table,
+        tableName: 'posts',
+        routePath: 'posts',
+        displayName: 'Post',
+        primaryKey: 'id',
+        columns: [],
+        options,
+      })),
+    } as unknown as AdminBackend
+
+    try {
+      await writeFile(
+        join(resourcesDir, 'posts.js'),
+        `module.exports = { __drizzleAdminResource: true, backend: 'persistence', table: () => ({}), options: {} }`,
+      )
+
+      const { resources, errors } = await loadResources(resourcesDir, backend)
+
+      expect(errors).toEqual([])
+      expect(resources[0]?.tableName).toBe('posts')
+    } finally {
+      await rm(resourcesDir, { recursive: true, force: true })
+    }
+  })
 })
 
 describe('validateResources', () => {

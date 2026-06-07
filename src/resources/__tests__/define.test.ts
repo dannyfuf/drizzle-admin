@@ -3,12 +3,15 @@ import {
   defineKnexAdminUsers,
   defineKnexResource,
   defineKnexTable,
+  definePersistenceAdminUsers,
+  definePersistenceResource,
   defineResource,
   isKnexTableDefinition,
   isResourceExport,
 } from '@/resources/define.ts'
 import type { PgTable } from 'drizzle-orm/pg-core'
 import type { ColumnMeta } from '@/dialects/types.ts'
+import type { PersistenceRepository } from '@/types.ts'
 
 function makeColumn(overrides: Partial<ColumnMeta> = {}): ColumnMeta {
   return {
@@ -97,6 +100,23 @@ describe('defineKnexResource', () => {
   })
 })
 
+describe('definePersistenceResource', () => {
+  it('accepts a Persistence repository factory without column metadata', () => {
+    const factory = (() => ({})) as unknown as PersistenceRepository
+    const result = definePersistenceResource(() => factory, { folder: 'Content' })
+
+    expect(result.__drizzleAdminResource).toBe(true)
+    expect(result.backend).toBe('persistence')
+    expect(result.options.folder).toBe('Content')
+  })
+
+  it('passes admin users repository references through unchanged', () => {
+    const factory = (() => ({})) as unknown as PersistenceRepository
+    const ref = () => factory
+    expect(definePersistenceAdminUsers(ref)).toBe(ref)
+  })
+})
+
 describe('isResourceExport', () => {
   it('returns true for valid resource exports', () => {
     const resource = defineResource({ name: 'cards' } as unknown as PgTable)
@@ -105,6 +125,12 @@ describe('isResourceExport', () => {
 
   it('returns true for valid Knex resource exports', () => {
     const resource = defineKnexResource('cards', [makeColumn()])
+    expect(isResourceExport(resource)).toBe(true)
+  })
+
+  it('returns true for valid Persistence resource exports', () => {
+    const factory = (() => ({})) as unknown as PersistenceRepository
+    const resource = definePersistenceResource(() => factory)
     expect(isResourceExport(resource)).toBe(true)
   })
 

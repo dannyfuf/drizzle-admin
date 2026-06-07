@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { defineConfig } from '@/config.ts'
 import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyKnexDatabase, AnyPgDatabase } from '@/types.ts'
+import type { PersistenceRepository } from '@/types.ts'
 import { defineKnexAdminUsers } from '@/resources/define.ts'
 
 describe('defineConfig', () => {
@@ -43,6 +44,20 @@ describe('defineConfig', () => {
     const config = {
       backend: 'knex' as const,
       db: {} as AnyKnexDatabase,
+      dialect: 'postgresql' as const,
+      adminUsers,
+      sessionSecret: 'secret',
+      resourcesDir: './resources',
+    }
+
+    expect(defineConfig(config)).toBe(config)
+  })
+
+  it('accepts Persistence backend config without a db property', () => {
+    const repository = (() => ({})) as unknown as PersistenceRepository
+    const adminUsers = () => repository
+    const config = {
+      backend: 'persistence' as const,
       dialect: 'postgresql' as const,
       adminUsers,
       sessionSecret: 'secret',

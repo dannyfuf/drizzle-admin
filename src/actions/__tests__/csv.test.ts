@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { PgTable } from 'drizzle-orm/pg-core'
-import type { AnyKnexDatabase, AnyPgDatabase } from '@/types.ts'
+import type {
+  AnyKnexDatabase,
+  AnyPgDatabase,
+  PersistenceActionContext,
+  PersistenceModelMetadata,
+  PersistenceRepository,
+} from '@/types.ts'
 import type { Context } from 'hono'
 import type { KnexTableDefinition } from '@/resources/types.ts'
 
@@ -24,6 +30,16 @@ const fakeKnexTable: KnexTableDefinition = {
   ],
 }
 
+const fakePersistenceMetadata: PersistenceModelMetadata = {
+  tableName: 'users',
+  columns: ['id', 'email'],
+  primaryKey: 'id',
+  columnMetadata: [
+    { name: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+    { name: 'email', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+  ],
+}
+
 function makeMockDb(records: Record<string, unknown>[]): AnyPgDatabase {
   return {
     select: () => ({
@@ -36,6 +52,29 @@ function makeMockKnex(records: Record<string, unknown>[]): AnyKnexDatabase {
   return (() => ({
     select: () => Promise.resolve(records),
   })) as unknown as AnyKnexDatabase
+}
+
+function makePersistenceFactory(records: Record<string, unknown>[]) {
+  const repository = {
+    metadata: fakePersistenceMetadata,
+    create: async (values: Record<string, unknown>) => values,
+    find: async () => null,
+    where: () => ({ delete: async () => 0 }),
+    query: () => ({}),
+    createBuilder: () => ({
+      select: () => ({
+        then: (resolve: (value: Record<string, unknown>[]) => void) => resolve(records),
+      }),
+    }),
+  } as unknown as PersistenceRepository
+  const factory = () => repository
+  const context = {
+    repository,
+    metadata: fakePersistenceMetadata,
+    getRepository: () => repository,
+  } satisfies PersistenceActionContext
+
+  return { context, factory }
 }
 
 describe('createCsvExportAction', () => {
@@ -132,5 +171,16 @@ describe('createCsvExportAction', () => {
 
     expect(response.headers.get('Content-Disposition')).toBe('attachment; filename="posts.csv"')
     expect(csv.split('\n')).toEqual(['id,title', '1,Hello'])
+  })
+
+  it('exports Persistence records through the action context', async () => {
+    const { context, factory } = makePersistenceFactory([{ id: 1, email: 'admin@test.com' }])
+    const action = createCsvExportAction(factory)
+
+    const response = await action.handler({} as unknown as Context, context) as Response
+    const csv = await response.text()
+
+    expect(response.headers.get('Content-Disposition')).toBe('attachment; filename="users.csv"')
+    expect(csv.split('\n')).toEqual(['id,email', '1,admin@test.com'])
   })
 })
