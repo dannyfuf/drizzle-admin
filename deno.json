@@ -19,6 +19,7 @@
     "bcryptjs": "npm:bcryptjs@^2",
     "@hono/node-server": "npm:@hono/node-server@^1"
   },
+  "compilerOptions": {},
   "publish": {
     "include": [
       "src/**/*.ts",
