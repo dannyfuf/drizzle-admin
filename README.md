@@ -1,6 +1,6 @@
 # DrizzleAdmin
 
-A server-rendered admin panel for [Drizzle ORM](https://orm.drizzle.team/) applications inspired by RoR [Active Admin](https://activeadmin.info/). Provides automatic CRUD interfaces for your database tables with minimal configuration.
+A server-rendered admin panel for [Drizzle ORM](https://orm.drizzle.team/) and PostgreSQL-backed [Knex](https://knexjs.org/) applications inspired by RoR [Active Admin](https://activeadmin.info/). Provides automatic CRUD interfaces for your database tables with minimal configuration.
 
 - Zero frontend build step - server-rendered HTML with Tailwind CSS via CDN
 - Dark mode UI inspired by shadcn
@@ -10,7 +10,7 @@ A server-rendered admin panel for [Drizzle ORM](https://orm.drizzle.team/) appli
 - Mount into existing Hono or Express apps, or run standalone
 - Sidebar folder grouping for organizing resources
 - Works with Node.js and Deno
-- PostgreSQL support (more dialects planned)
+- PostgreSQL support for Drizzle and Knex (more dialects planned)
 
 ## Installation
 
@@ -40,7 +40,13 @@ Or add to your import map:
 
 ### Peer Dependencies
 
-DrizzleAdmin expects you already have `drizzle-orm` and a database driver (e.g., `pg`) in your project.
+DrizzleAdmin includes `drizzle-orm` for the default Drizzle path and expects you to provide a database driver such as `pg`.
+
+Knex support is optional. If you use Knex, install it in your application too:
+
+```bash
+pnpm add knex pg
+```
 
 ## Quick Start
 
@@ -120,15 +126,92 @@ npx tsx admin/index.ts
 
 Then open `http://localhost:3001` and sign in.
 
+## Knex Quick Start
+
+Knex support is PostgreSQL-only. Because Knex does not expose table metadata like Drizzle, Knex resources use explicit column metadata.
+
+### 1. Define Knex table metadata
+
+```ts
+// admin/tables.ts
+import { defineKnexAdminUsers, defineKnexTable } from 'drizzle-admin'
+
+export const adminUsers = defineKnexAdminUsers('admin_users', [
+  { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+  { name: 'email', sqlName: 'email', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+  { name: 'passwordHash', sqlName: 'password_hash', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+  { name: 'createdAt', sqlName: 'created_at', dataType: 'timestamp', isNullable: false, isPrimaryKey: false, hasDefault: true },
+  { name: 'updatedAt', sqlName: 'updated_at', dataType: 'timestamp', isNullable: false, isPrimaryKey: false, hasDefault: true },
+])
+
+export const postsTable = defineKnexTable('posts', [
+  { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+  { name: 'title', sqlName: 'title', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+  { name: 'body', sqlName: 'body', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+  { name: 'createdAt', sqlName: 'created_at', dataType: 'timestamp', isNullable: false, isPrimaryKey: false, hasDefault: true },
+  { name: 'updatedAt', sqlName: 'updated_at', dataType: 'timestamp', isNullable: false, isPrimaryKey: false, hasDefault: true },
+])
+```
+
+The admin users metadata must include these logical column names: `id`, `email`, `passwordHash`, `createdAt`, and `updatedAt`. `sqlName` maps each logical name to the actual database column.
+
+### 2. Create Knex resource files
+
+```ts
+// admin/resources/posts.ts
+import { defineKnexResource } from 'drizzle-admin'
+import { createCsvExportAction } from 'drizzle-admin/actions/csv'
+import { postsTable } from '../tables'
+
+export default defineKnexResource(postsTable, {
+  permitParams: ['title', 'body'],
+  index: {
+    filters: ['title'],
+  },
+  collectionActions: [
+    createCsvExportAction(postsTable),
+  ],
+})
+```
+
+### 3. Configure Knex mode
+
+```ts
+// admin/index.ts
+import knex from 'knex'
+import { DrizzleAdmin, defineConfig } from 'drizzle-admin'
+import { adminUsers } from './tables'
+
+const db = knex({
+  client: 'pg',
+  connection: process.env.DATABASE_URL,
+})
+
+const admin = new DrizzleAdmin(
+  defineConfig({
+    backend: 'knex',
+    db,
+    dialect: 'postgresql',
+    adminUsers,
+    sessionSecret: process.env.ADMIN_SESSION_SECRET!,
+    resourcesDir: './admin/resources',
+  })
+)
+
+await admin.seed({ email: 'admin@example.com', password: 'changeme' })
+await admin.start()
+```
+
 ## Configuration
 
 ### `defineConfig(options)`
 
 | Option | Type | Required | Default | Description |
 |--------|------|----------|---------|-------------|
-| `db` | Drizzle DB instance | Yes | - | Your Drizzle database connection |
+| `db` | Drizzle DB or Knex instance | Yes | - | Your configured database connection |
 | `dialect` | `'postgresql'` | Yes | - | Database dialect (only PostgreSQL supported currently) |
-| `adminUsers` | Drizzle table | Yes | - | Table for admin user authentication |
+| `adminUsers` | Drizzle table or Knex metadata | Yes | - | Table for admin user authentication |
+| `backend` | `'drizzle' \| 'knex'` | No | `'drizzle'` | Use `'knex'` for Knex mode |
 | `sessionSecret` | `string` | Yes | - | Secret key for signing JWT tokens (use a strong random string) |
 | `resourcesDir` | `string` | Yes | - | Path to directory containing resource definition files |
 | `port` | `number` | No | `3001` | Port to run the admin server on |
@@ -239,6 +322,21 @@ DrizzleAdmin will automatically:
 - Hide password columns from views
 - Skip auto-managed columns (primary keys, `createdAt`, `updatedAt`) in create forms
 - Show auto-managed columns as disabled (read-only) fields on edit forms
+
+### Knex Resource
+
+Knex resources use `defineKnexResource()` with metadata from `defineKnexTable()`:
+
+```ts
+import { defineKnexResource } from 'drizzle-admin'
+import { postsTable } from '../tables'
+
+export default defineKnexResource(postsTable, {
+  index: { filters: ['title'] },
+})
+```
+
+The same resource options are available for Drizzle and Knex resources. Knex column `dataType` values should use the admin metadata types: `text`, `integer`, `boolean`, `enum`, `timestamp`, or `json`.
 
 ### Resource with Options
 
@@ -365,10 +463,10 @@ export default defineResource(posts, {
 | Option | Type | Description |
 |--------|------|-------------|
 | `name` | `string` | Button label for the action |
-| `handler` | `(id, db) => Promise<void>` | Function that receives the record ID and db instance |
+| `handler` | `(id, db) => Promise<void>` | Function that receives the record ID and configured db instance |
 | `destructive` | `boolean` | If `true` (default), shows a confirmation modal before executing |
 
-Member actions appear on the show page for each record.
+Member actions appear on the show page for each record. Drizzle resource actions receive the Drizzle database instance. Knex resource actions receive the Knex instance.
 
 #### `collectionActions` - Actions on the resource collection
 
@@ -391,7 +489,7 @@ export default defineResource(posts, {
 | Option | Type | Description |
 |--------|------|-------------|
 | `name` | `string` | Button label for the action |
-| `handler` | `(c, db) => Promise<void \| Response>` | Function that receives Hono context and db. Can return a `Response` for downloads. |
+| `handler` | `(c, db) => Promise<void \| Response>` | Function that receives Hono context and the configured db. Can return a `Response` for downloads. |
 
 Collection actions appear on the index page alongside the "Create New" button.
 
@@ -413,9 +511,15 @@ export default defineResource(posts, {
 
 This adds an "Export CSV" button to the index page that downloads all records as a CSV file.
 
+For Knex resources, pass the same `KnexTableDefinition` used by `defineKnexResource()`:
+
+```ts
+createCsvExportAction(postsTable)
+```
+
 ## Supported Column Types
 
-DrizzleAdmin automatically maps Drizzle column types to appropriate form inputs:
+DrizzleAdmin automatically maps Drizzle column types to appropriate form inputs. Knex users provide the same admin metadata type explicitly:
 
 | Drizzle Type | Admin Input | Notes |
 |-------------|-------------|-------|
@@ -731,6 +835,18 @@ Type-safe helper for creating configuration objects. Provides TypeScript inferen
 ### `defineResource(table, options?)`
 
 Creates a resource definition for DrizzleAdmin to load. Must be the default export of a file in your `resourcesDir`.
+
+### `defineKnexTable(tableName, columns)`
+
+Creates explicit table metadata for Knex resources and admin users. Every column must include `name`, `sqlName`, `dataType`, `isNullable`, `isPrimaryKey`, and `hasDefault`.
+
+### `defineKnexAdminUsers(tableName, columns)`
+
+Creates Knex admin-user table metadata. The logical column names must include `id`, `email`, `passwordHash`, `createdAt`, and `updatedAt`.
+
+### `defineKnexResource(table, options?)`
+
+Creates a Knex resource definition for DrizzleAdmin to load. Must be the default export of a file in your `resourcesDir`.
 
 ### `createCsvExportAction(table)`
 
