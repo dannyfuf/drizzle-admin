@@ -23,6 +23,17 @@ describe('defineResource', () => {
     const result = defineResource(table, { folder: 'CRM' })
     expect(result.options.folder).toBe('CRM')
   })
+
+  it('passes index.filters through', () => {
+    const table = { name: 'posts' } as unknown as PgTable
+    const result = defineResource(table, {
+      index: {
+        filters: ['title', 'status', 'featured'],
+      },
+    })
+
+    expect(result.options.index?.filters).toEqual(['title', 'status', 'featured'])
+  })
 })
 
 describe('isResourceExport', () => {

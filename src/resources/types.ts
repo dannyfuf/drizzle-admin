@@ -14,6 +14,8 @@ export interface ColumnConfig {
 export interface IndexConfig extends ColumnConfig {
   /** Number of records per page. Defaults to 20. */
   perPage?: number
+  /** Optional, order-sensitive list of column names to render as index filters. */
+  filters?: string[]
 }
 
 /** Configuration for the resource show (detail) view. */
