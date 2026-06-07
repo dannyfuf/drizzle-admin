@@ -1,21 +1,23 @@
 import { readdir } from 'node:fs/promises'
 import { join, resolve, extname } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { getTableName } from 'drizzle-orm'
+import type { AdminBackend } from '@/backends/types.ts'
 import { isResourceExport } from '@/resources/define.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
-import { tableNameToRoutePath, tableNameToDisplayName } from '@/utils/table.ts'
+import type { PgTable } from 'drizzle-orm/pg-core'
+import type { AnyPgDatabase } from '@/types.ts'
 
-export interface LoadResourcesResult {
-  resources: ResourceDefinition[]
+export interface LoadResourcesResult<TableRef = PgTable, ActionDatabase = AnyPgDatabase> {
+  resources: ResourceDefinition<TableRef, ActionDatabase>[]
   errors: string[]
 }
 
-export async function loadResources(
-  resourcesDir: string
-): Promise<LoadResourcesResult> {
+export async function loadResources<TableRef = PgTable, ActionDatabase = AnyPgDatabase>(
+  resourcesDir: string,
+  backend: AdminBackend<ActionDatabase, TableRef>,
+): Promise<LoadResourcesResult<TableRef, ActionDatabase>> {
   const absoluteDir = resolve(resourcesDir)
-  const resources: ResourceDefinition[] = []
+  const resources: ResourceDefinition<TableRef, ActionDatabase>[] = []
   const errors: string[] = []
 
   let files: string[]
@@ -44,23 +46,24 @@ export async function loadResources(
       if (!isResourceExport(exported)) {
         errors.push(
           `${file}: default export is not a valid resource. ` +
-          `Use defineResource() to create the export.`
+          `Use defineResource() or defineKnexResource() to create the export.`
         )
         continue
       }
 
-      const tableName = getTableName(exported.table)
-      const routePath = tableNameToRoutePath(tableName)
-      const displayName = tableNameToDisplayName(tableName)
+      const resourceBackend = exported.backend ?? 'drizzle'
+      if (resourceBackend !== backend.name) {
+        errors.push(
+          `${file}: resource is declared for the "${resourceBackend}" backend, ` +
+          `but the current configuration uses "${backend.name}".`
+        )
+        continue
+      }
 
-      resources.push({
-        table: exported.table,
-        tableName,
-        routePath,
-        displayName,
-        options: exported.options,
-        folder: exported.options.folder,
-      })
+      resources.push(backend.resolveResource({
+        table: exported.table as TableRef,
+        options: exported.options as never,
+      }))
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       errors.push(`${file}: Failed to load - ${message}`)
@@ -70,7 +73,7 @@ export async function loadResources(
   return { resources, errors }
 }
 
-export function validateResources(resources: ResourceDefinition[]): string[] {
+export function validateResources<TableRef, ActionDatabase>(resources: ResourceDefinition<TableRef, ActionDatabase>[]): string[] {
   const errors: string[] = []
   const routePaths = new Map<string, string>()
 

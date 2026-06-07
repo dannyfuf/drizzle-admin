@@ -22,11 +22,17 @@ interface DeclaredFilterResolution {
   errors: string[]
 }
 
-export function validateDeclaredFilters(resource: ResourceDefinition, columns: ColumnMeta[]): string[] {
+export function validateDeclaredFilters<TableRef, ActionDatabase>(
+  resource: ResourceDefinition<TableRef, ActionDatabase>,
+  columns: ColumnMeta[],
+): string[] {
   return resolveDeclaredFilters(resource, columns).errors
 }
 
-export function getDeclaredFilters(resource: ResourceDefinition, columns: ColumnMeta[]): DeclaredFilter[] {
+export function getDeclaredFilters<TableRef, ActionDatabase>(
+  resource: ResourceDefinition<TableRef, ActionDatabase>,
+  columns: ColumnMeta[],
+): DeclaredFilter[] {
   const { filters, errors } = resolveDeclaredFilters(resource, columns)
 
   if (errors.length > 0) {
@@ -74,7 +80,10 @@ export function buildFilterQuery(parsedFilters: ParsedFilter[]): Record<string, 
   )
 }
 
-function resolveDeclaredFilters(resource: ResourceDefinition, columns: ColumnMeta[]): DeclaredFilterResolution {
+function resolveDeclaredFilters<TableRef, ActionDatabase>(
+  resource: ResourceDefinition<TableRef, ActionDatabase>,
+  columns: ColumnMeta[],
+): DeclaredFilterResolution {
   const declaredNames = resource.options.index?.filters ?? []
   if (declaredNames.length === 0) {
     return { filters: [], errors: [] }
