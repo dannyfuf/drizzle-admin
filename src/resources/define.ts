@@ -4,8 +4,10 @@ import type {
   DrizzleResourceOptions,
   KnexResourceOptions,
   KnexTableDefinition,
+  PersistenceResourceOptions,
   ResourceOptions,
 } from '@/resources/types.ts'
+import type { PersistenceResourceRef } from '@/types.ts'
 
 /** The object returned by {@link defineResource}, used internally by the resource loader. */
 export interface DrizzleResourceExport {
@@ -23,7 +25,15 @@ export interface KnexResourceExport {
   options: KnexResourceOptions
 }
 
-export type ResourceExport = DrizzleResourceExport | KnexResourceExport
+/** The object returned by {@link definePersistenceResource}, used internally by the resource loader. */
+export interface PersistenceResourceExport {
+  __drizzleAdminResource: true
+  backend: 'persistence'
+  table: PersistenceResourceRef
+  options: PersistenceResourceOptions
+}
+
+export type ResourceExport = DrizzleResourceExport | KnexResourceExport | PersistenceResourceExport
 
 /**
  * Creates a resource definition that registers a Drizzle table with DrizzleAdmin.
@@ -69,6 +79,27 @@ export function defineKnexResource(
 
 export function defineKnexAdminUsers(tableName: string, columns: ColumnMeta[]): KnexTableDefinition {
   return defineKnexTable(tableName, columns)
+}
+
+export function definePersistenceResource(table: PersistenceResourceRef): PersistenceResourceExport
+export function definePersistenceResource(
+  table: PersistenceResourceRef,
+  options: PersistenceResourceOptions,
+): PersistenceResourceExport
+export function definePersistenceResource(
+  table: PersistenceResourceRef,
+  options?: PersistenceResourceOptions,
+): PersistenceResourceExport {
+  return {
+    __drizzleAdminResource: true,
+    backend: 'persistence',
+    table,
+    options: options ?? {},
+  }
+}
+
+export function definePersistenceAdminUsers(table: PersistenceResourceRef): PersistenceResourceRef {
+  return table
 }
 
 export function defineKnexTable(tableName: string, columns: ColumnMeta[]): KnexTableDefinition {

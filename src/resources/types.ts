@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import type { PgTable } from 'drizzle-orm/pg-core'
-import type { AnyKnexDatabase, AnyPgDatabase } from '@/types.ts'
+import type { AnyKnexDatabase, AnyPgDatabase, PersistenceActionContext } from '@/types.ts'
 import type { ColumnMeta } from '@/dialects/types.ts'
 
 /** Configuration for selecting which columns to display. */
@@ -63,6 +63,7 @@ export interface ResourceOptions<Database = AnyPgDatabase> {
 
 export type DrizzleResourceOptions = ResourceOptions<AnyPgDatabase>
 export type KnexResourceOptions = ResourceOptions<AnyKnexDatabase>
+export type PersistenceResourceOptions = ResourceOptions<PersistenceActionContext>
 
 /** Explicit metadata for a Knex-managed table. */
 export interface KnexTableDefinition {
