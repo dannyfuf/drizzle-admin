@@ -35,10 +35,19 @@
     "hono": "^4.x",
     "jose": "^5.x"
   },
+  "peerDependencies": {
+    "knex": "^3.x"
+  },
+  "peerDependenciesMeta": {
+    "knex": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/bcryptjs": "^2.x",
     "@types/node": "^22.x",
     "drizzle-kit": "^0.27.x",
+    "knex": "^3.2.10",
     "pg": "^8.x",
     "typescript": "^5.x",
     "vitest": "^2.x"
