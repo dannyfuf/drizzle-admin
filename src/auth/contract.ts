@@ -3,10 +3,7 @@ import type { PgTable } from 'drizzle-orm/pg-core'
 
 const REQUIRED_COLUMNS = ['id', 'email', 'passwordHash', 'createdAt', 'updatedAt'] as const
 
-export function validateAdminUsersTable(table: PgTable): void {
-  const columns = getTableColumns(table)
-  const columnNames = Object.keys(columns)
-
+export function validateAdminUsersColumns(columnNames: string[]): void {
   for (const required of REQUIRED_COLUMNS) {
     if (!columnNames.includes(required)) {
       throw new Error(
@@ -15,4 +12,10 @@ export function validateAdminUsersTable(table: PgTable): void {
       )
     }
   }
+}
+
+export function validateAdminUsersTable(table: PgTable): void {
+  const columns = getTableColumns(table)
+  const columnNames = Object.keys(columns)
+  validateAdminUsersColumns(columnNames)
 }

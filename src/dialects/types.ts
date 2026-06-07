@@ -1,3 +1,5 @@
+import type { PgTable } from 'drizzle-orm/pg-core'
+
 /** Metadata describing a single database column extracted from a Drizzle table. */
 export interface ColumnMeta {
   /** The JavaScript property name on the Drizzle table object. */
@@ -16,12 +18,10 @@ export interface ColumnMeta {
   enumValues?: string[]
 }
 
-import type { PgTable } from 'drizzle-orm/pg-core'
-
 /** Adapter interface for extracting column metadata from Drizzle tables for a specific SQL dialect. */
-export interface DialectAdapter {
+export interface DialectAdapter<TableRef = PgTable> {
   /** The SQL dialect name. */
   name: 'postgresql' | 'mysql' | 'sqlite'
   /** Extracts column metadata from a Drizzle table definition. */
-  extractColumns(table: PgTable): ColumnMeta[]
+  extractColumns(table: TableRef): ColumnMeta[]
 }

@@ -1,6 +1,7 @@
 import type { Column } from 'drizzle-orm'
 import type { PgDatabase } from 'drizzle-orm/pg-core'
 import type { PgTable } from 'drizzle-orm/pg-core'
+import type { Knex } from 'knex'
 
 /** Any PostgreSQL table — used when the specific column types don't matter. */
 export type AnyPgTable = PgTable
@@ -14,6 +15,9 @@ export type AnyPgTable = PgTable
  */
 // deno-lint-ignore no-explicit-any
 export type AnyPgDatabase = PgDatabase<any, any>
+
+/** Any Knex database instance. */
+export type AnyKnexDatabase = Knex
 
 /** Any Drizzle column — used in dialect adapters when iterating columns. */
 export type AnyDrizzleColumn = Column

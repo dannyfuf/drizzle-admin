@@ -2,7 +2,7 @@ import { getTableColumns, type Column } from 'drizzle-orm'
 import type { PgTable } from 'drizzle-orm/pg-core'
 import type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'
 
-export const postgresqlAdapter: DialectAdapter = {
+export const postgresqlAdapter: DialectAdapter<PgTable> = {
   name: 'postgresql',
 
   extractColumns(table: PgTable): ColumnMeta[] {
