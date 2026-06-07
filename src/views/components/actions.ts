@@ -4,14 +4,14 @@ import { escapeHtml } from '@/views/components/flash.ts'
 import { styles } from '@/views/styles.ts'
 import { adminUrl } from '@/utils/url.ts'
 
-export interface MemberActionsProps {
-  resource: ResourceDefinition
+export interface MemberActionsProps<TableRef = unknown, ActionDatabase = never> {
+  resource: ResourceDefinition<TableRef, ActionDatabase>
   recordId: string | number
   csrfToken: string
   basePath: string
 }
 
-export function renderMemberActions(props: MemberActionsProps): { buttons: string; modals: string } {
+export function renderMemberActions<TableRef, ActionDatabase>(props: MemberActionsProps<TableRef, ActionDatabase>): { buttons: string; modals: string } {
   const { resource, recordId, csrfToken, basePath } = props
   const actions = resource.options.memberActions ?? []
 
@@ -57,13 +57,13 @@ export function renderMemberActions(props: MemberActionsProps): { buttons: strin
   }
 }
 
-export interface CollectionActionsProps {
-  resource: ResourceDefinition
+export interface CollectionActionsProps<TableRef = unknown, ActionDatabase = never> {
+  resource: ResourceDefinition<TableRef, ActionDatabase>
   csrfToken: string
   basePath: string
 }
 
-export function renderCollectionActions(props: CollectionActionsProps): string {
+export function renderCollectionActions<TableRef, ActionDatabase>(props: CollectionActionsProps<TableRef, ActionDatabase>): string {
   const { resource, csrfToken, basePath } = props
   const actions = resource.options.collectionActions ?? []
 

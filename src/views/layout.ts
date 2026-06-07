@@ -6,18 +6,18 @@ import { renderFlash, escapeHtml } from '@/views/components/flash.ts'
 import { modalScript } from '@/views/components/modal.ts'
 import { adminUrl } from '@/utils/url.ts'
 
-export interface LayoutProps {
+export interface LayoutProps<TableRef = unknown, ActionDatabase = never> {
   title: string
   content: string
   admin: AdminTokenPayload
-  resources: ResourceDefinition[]
+  resources: ResourceDefinition<TableRef, ActionDatabase>[]
   currentPath: string
   basePath: string
   flash?: FlashMessage | null
   modals?: string
 }
 
-export function layout(props: LayoutProps): string {
+export function layout<TableRef, ActionDatabase>(props: LayoutProps<TableRef, ActionDatabase>): string {
   const { title, content, admin, resources, currentPath, basePath, flash, modals } = props
 
   return `
@@ -72,7 +72,11 @@ export function layout(props: LayoutProps): string {
 `
 }
 
-function renderNavItem(resource: ResourceDefinition, currentPath: string, basePath: string): string {
+function renderNavItem<TableRef, ActionDatabase>(
+  resource: ResourceDefinition<TableRef, ActionDatabase>,
+  currentPath: string,
+  basePath: string,
+): string {
   const href = adminUrl(basePath, `/${resource.routePath}`)
   const isActive = currentPath.startsWith(`/${resource.routePath}`)
   const className = isActive ? styles.navLinkActive : styles.navLink
@@ -88,9 +92,9 @@ function renderNavItem(resource: ResourceDefinition, currentPath: string, basePa
   `
 }
 
-export interface SidebarGroup {
+export interface SidebarGroup<TableRef = unknown, ActionDatabase = never> {
   folder: string | null
-  resources: ResourceDefinition[]
+  resources: ResourceDefinition<TableRef, ActionDatabase>[]
 }
 
 /**
@@ -99,9 +103,11 @@ export interface SidebarGroup {
  * - Folder groups follow, sorted by folder name.
  * - Resources within each folder are sorted by displayName.
  */
-export function groupResourcesForSidebar(resources: ResourceDefinition[]): SidebarGroup[] {
-  const ungrouped: ResourceDefinition[] = []
-  const folderMap = new Map<string, ResourceDefinition[]>()
+export function groupResourcesForSidebar<TableRef, ActionDatabase>(
+  resources: ResourceDefinition<TableRef, ActionDatabase>[],
+): SidebarGroup<TableRef, ActionDatabase>[] {
+  const ungrouped: ResourceDefinition<TableRef, ActionDatabase>[] = []
+  const folderMap = new Map<string, ResourceDefinition<TableRef, ActionDatabase>[]>()
 
   for (const r of resources) {
     if (r.folder) {
@@ -115,7 +121,7 @@ export function groupResourcesForSidebar(resources: ResourceDefinition[]): Sideb
 
   ungrouped.sort((a, b) => a.displayName.localeCompare(b.displayName))
 
-  const groups: SidebarGroup[] = []
+  const groups: SidebarGroup<TableRef, ActionDatabase>[] = []
 
   if (ungrouped.length > 0) {
     groups.push({ folder: null, resources: ungrouped })
@@ -130,8 +136,8 @@ export function groupResourcesForSidebar(resources: ResourceDefinition[]): Sideb
   return groups
 }
 
-function renderFolder(
-  group: SidebarGroup,
+function renderFolder<TableRef, ActionDatabase>(
+  group: SidebarGroup<TableRef, ActionDatabase>,
   currentPath: string,
   basePath: string,
 ): string {
@@ -155,8 +161,8 @@ function renderFolder(
   `
 }
 
-function renderSidebar(
-  resources: ResourceDefinition[],
+function renderSidebar<TableRef, ActionDatabase>(
+  resources: ResourceDefinition<TableRef, ActionDatabase>[],
   currentPath: string,
   basePath: string,
 ): string {
