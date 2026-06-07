@@ -16,6 +16,7 @@ export interface ActionRoutesConfig<ActionDatabase = unknown, TableRef = unknown
 export function createActionRoutes<ActionDatabase = unknown, TableRef = unknown>(config: ActionRoutesConfig<ActionDatabase, TableRef>): Hono {
   const { backend, resource, sessionSecret, basePath } = config
   const app = new Hono()
+  const actionContext = () => backend.getActionContext?.(resource) ?? backend.actionDatabase
 
   // Member action routes: POST /:id/actions/:actionName
   app.post('/:id/actions/:actionName', async (c) => {
@@ -35,7 +36,7 @@ export function createActionRoutes<ActionDatabase = unknown, TableRef = unknown>
     }
 
     try {
-      await action.handler(id, backend.actionDatabase)
+      await action.handler(id, actionContext())
       setFlash(c, 'success', `${action.name} completed successfully.`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
@@ -62,7 +63,7 @@ export function createActionRoutes<ActionDatabase = unknown, TableRef = unknown>
     }
 
     try {
-      const result = await action.handler(c, backend.actionDatabase)
+      const result = await action.handler(c, actionContext())
 
       if (result instanceof Response) {
         return result
