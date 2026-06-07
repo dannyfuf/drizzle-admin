@@ -6,6 +6,7 @@ import {
   formatColumnHeader,
 } from '@/views/index.ts'
 import type { ColumnMeta } from '@/dialects/types.ts'
+import type { DeclaredFilter } from '@/resources/filters.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 
 import type { PgTable } from 'drizzle-orm/pg-core'
@@ -29,6 +30,17 @@ function makeResource(overrides: Partial<ResourceDefinition> = {}): ResourceDefi
     routePath: 'cards',
     displayName: 'Card',
     options: {},
+    ...overrides,
+  }
+}
+
+function makeFilter(overrides: Partial<DeclaredFilter> = {}): DeclaredFilter {
+  const column = makeColumn({ name: 'title', dataType: 'text' })
+
+  return {
+    name: column.name,
+    queryKey: 'filter_title',
+    column,
     ...overrides,
   }
 }
@@ -142,6 +154,8 @@ describe('indexView', () => {
       makeColumn({ name: 'id', isPrimaryKey: true }),
       makeColumn({ name: 'title' }),
     ],
+    filters: [],
+    activeFilterQuery: {},
     pagination: { currentPage: 1, totalPages: 1, baseUrl: '/cards' },
     csrfToken: 'test-token',
     basePath: '',
@@ -174,5 +188,48 @@ describe('indexView', () => {
     expect(html).toContain('/cards/1')
     expect(html).toContain('View')
     expect(html).toContain('Edit')
+  })
+
+  it('does not render filter form when no filters are declared', () => {
+    const html = indexView({ ...baseProps, records: [] })
+    expect(html).not.toContain('Apply Filters')
+    expect(html).not.toContain('filter_title')
+  })
+
+  it('renders declared filters and active values', () => {
+    const html = indexView({
+      ...baseProps,
+      filters: [
+        makeFilter(),
+        makeFilter({
+          name: 'featured',
+          queryKey: 'filter_featured',
+          column: makeColumn({ name: 'featured', dataType: 'boolean' }),
+        }),
+      ],
+      activeFilterQuery: {
+        filter_title: 'Hello',
+        filter_featured: 'false',
+      },
+      records: [{ id: 1, title: 'Test' }],
+    })
+
+    expect(html).toContain('Apply Filters')
+    expect(html).toContain('name="filter_title"')
+    expect(html).toContain('value="Hello"')
+    expect(html).toContain('name="filter_featured"')
+    expect(html).toContain('option value="false" selected')
+  })
+
+  it('renders a clear link back to the bare index url', () => {
+    const html = indexView({
+      ...baseProps,
+      filters: [makeFilter()],
+      activeFilterQuery: { filter_title: 'Hello' },
+      records: [],
+    })
+
+    expect(html).toContain('href="/cards"')
+    expect(html).toContain('Clear')
   })
 })

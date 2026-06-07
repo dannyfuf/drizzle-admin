@@ -1,9 +1,10 @@
 import type { ColumnMeta } from '@/dialects/types.ts'
+import type { DeclaredFilter } from '@/resources/filters.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 import { styles } from '@/views/styles.ts'
 import { escapeHtml } from '@/views/components/flash.ts'
 import { renderPagination, PaginationProps } from '@/views/components/pagination.ts'
-import { linkButton } from '@/views/components/button.ts'
+import { button, linkButton } from '@/views/components/button.ts'
 import { renderCollectionActions } from '@/views/components/actions.ts'
 import { adminUrl } from '@/utils/url.ts'
 
@@ -11,17 +12,24 @@ export interface IndexViewProps {
   resource: ResourceDefinition
   columns: ColumnMeta[]
   records: Record<string, unknown>[]
+  filters: DeclaredFilter[]
+  activeFilterQuery: Record<string, string>
   pagination: PaginationProps
   csrfToken: string
   basePath: string
 }
 
 export function indexView(props: IndexViewProps): string {
-  const { resource, columns, records, pagination, csrfToken, basePath } = props
+  const { resource, columns, records, filters, activeFilterQuery, pagination, csrfToken, basePath } = props
 
   const visibleColumns = getVisibleColumns(columns, resource.options.index)
 
   const collectionActions = renderCollectionActions({ resource, csrfToken, basePath })
+  const filterForm = renderFilterForm({
+    actionUrl: adminUrl(basePath, `/${resource.routePath}`),
+    filters,
+    activeFilterQuery,
+  })
 
   const actionBar = `
     <div class="flex items-center justify-between">
@@ -35,6 +43,7 @@ export function indexView(props: IndexViewProps): string {
   if (records.length === 0) {
     return `
       ${actionBar}
+      ${filterForm}
       <div class="${styles.cardPadded} text-center ${styles.textMuted} mt-4">
         No ${resource.displayName.toLowerCase()}s found.
       </div>
@@ -63,6 +72,7 @@ export function indexView(props: IndexViewProps): string {
 
   return `
     ${actionBar}
+    ${filterForm}
     <div class="${styles.card} overflow-hidden mt-4">
       <table class="${styles.table}">
         <thead class="border-b border-zinc-800">
@@ -89,6 +99,105 @@ export function getVisibleColumns(columns: ColumnMeta[], config?: { columns?: st
   }
 
   return result
+}
+
+interface RenderFilterFormProps {
+  actionUrl: string
+  filters: DeclaredFilter[]
+  activeFilterQuery: Record<string, string>
+}
+
+function renderFilterForm(props: RenderFilterFormProps): string {
+  const { actionUrl, filters, activeFilterQuery } = props
+
+  if (filters.length === 0) {
+    return ''
+  }
+
+  const fields = filters.map((filter) => {
+    const value = activeFilterQuery[filter.queryKey] ?? ''
+    return `
+      <div class="space-y-1 min-w-40 flex-1">
+        <label for="${filter.queryKey}" class="${styles.label}">${escapeHtml(formatColumnHeader(filter.name))}</label>
+        ${renderFilterInput(filter, value)}
+      </div>
+    `
+  }).join('')
+
+  return `
+    <div class="${styles.cardPadded} mt-4">
+      <form method="GET" action="${actionUrl}" class="space-y-4">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          ${fields}
+        </div>
+        <div class="flex items-center gap-2">
+          ${button({ label: 'Apply Filters', type: 'submit', variant: 'secondary' })}
+          ${linkButton({ label: 'Clear', href: actionUrl, variant: 'ghost' })}
+        </div>
+      </form>
+    </div>
+  `
+}
+
+function renderFilterInput(filter: DeclaredFilter, value: string): string {
+  const { column, queryKey } = filter
+
+  if (column.dataType === 'enum' && column.enumValues) {
+    const options = column.enumValues
+      .map((option) => `<option value="${escapeHtml(option)}" ${value === option ? 'selected' : ''}>${escapeHtml(option)}</option>`)
+      .join('')
+
+    return `
+      <select id="${queryKey}" name="${queryKey}" class="${styles.input}">
+        <option value="">All</option>
+        ${options}
+      </select>
+    `
+  }
+
+  if (column.dataType === 'boolean') {
+    return `
+      <select id="${queryKey}" name="${queryKey}" class="${styles.input}">
+        <option value="">All</option>
+        <option value="true" ${value === 'true' ? 'selected' : ''}>True</option>
+        <option value="false" ${value === 'false' ? 'selected' : ''}>False</option>
+      </select>
+    `
+  }
+
+  if (column.dataType === 'timestamp') {
+    return `
+      <input
+        type="datetime-local"
+        id="${queryKey}"
+        name="${queryKey}"
+        value="${escapeHtml(value)}"
+        class="${styles.input}"
+      >
+    `
+  }
+
+  if (column.dataType === 'integer') {
+    return `
+      <input
+        type="number"
+        id="${queryKey}"
+        name="${queryKey}"
+        value="${escapeHtml(value)}"
+        class="${styles.input}"
+      >
+    `
+  }
+
+  return `
+    <input
+      type="text"
+      id="${queryKey}"
+      name="${queryKey}"
+      value="${escapeHtml(value)}"
+      class="${styles.input}"
+    >
+  `
 }
 
 function isPasswordColumn(col: ColumnMeta): boolean {
