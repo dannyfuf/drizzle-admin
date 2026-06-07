@@ -22,12 +22,12 @@ export const postgresqlAdapter: DialectAdapter = {
 
 function mapPgType(column: Column): string {
   const type = column.dataType
+  if (column.enumValues) return 'enum'
   if (type === 'string') return 'text'
   if (type === 'number' || type === 'bigint') return 'integer'
   if (type === 'boolean') return 'boolean'
   if (type === 'date') return 'timestamp'
   if (type === 'json') return 'json'
-  if (column.enumValues) return 'enum'
   return 'text'
 }
 

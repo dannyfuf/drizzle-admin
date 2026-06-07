@@ -78,6 +78,14 @@ describe('postgresqlAdapter', () => {
       expect(columns[0].dataType).toBe('enum')
     })
 
+    it('maps string-backed enum columns to "enum"', () => {
+      const table = makeTable({
+        col: makeColumn({ dataType: 'string', enumValues: ['draft', 'published'] }),
+      })
+      const columns = postgresqlAdapter.extractColumns(table)
+      expect(columns[0].dataType).toBe('enum')
+    })
+
     it('falls back to "text" for unknown types', () => {
       const table = makeTable({ col: makeColumn({ dataType: 'unknown_thing' }) })
       const columns = postgresqlAdapter.extractColumns(table)
