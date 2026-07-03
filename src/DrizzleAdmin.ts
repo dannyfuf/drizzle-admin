@@ -12,6 +12,7 @@ import type { KnexTableDefinition, ResourceDefinition } from "@/resources/types.
 import { createAuthRoutes } from "@/routes/auth.ts";
 import { createCrudRoutes } from "@/routes/crud.ts";
 import { authMiddleware } from "@/auth/middleware.ts";
+import { createInMemoryLoginRateLimiter } from "@/auth/rate-limit.ts";
 import { loginPage } from "@/views/login.ts";
 import { hashPassword } from "@/auth/password.ts";
 import { adminUrl } from "@/utils/url.ts";
@@ -121,6 +122,8 @@ export class DrizzleAdmin {
       sessionSecret: this.config.sessionSecret,
       basePath: this.basePath,
       renderLogin: (props) => loginPage(props),
+      rateLimiter: createInMemoryLoginRateLimiter(this.config.loginRateLimit),
+      trustProxyHeader: this.config.loginRateLimit?.trustProxyHeader ?? false,
     });
     this.app.route("/", authRoutes);
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll } from 'vitest'
 import type { Hono } from 'hono'
 import bcrypt from 'bcryptjs'
 import type { AdminBackend, BackendRecord } from '@/backends/types.ts'
+import type { LoginRateLimiter } from '@/auth/rate-limit.ts'
 import { createAuthRoutes, readCredentialField } from '@/routes/auth.ts'
 import { loginPage } from '@/views/login.ts'
 
@@ -14,7 +15,20 @@ beforeAll(async () => {
   passwordHash = await bcrypt.hash('correct-password', 4)
 })
 
-function makeApp(options: { admin?: BackendRecord | null } = {}) {
+function makeStubLimiter(overrides: Partial<LoginRateLimiter> = {}): LoginRateLimiter {
+  return {
+    isLimited: vi.fn(() => false),
+    recordFailure: vi.fn(),
+    recordSuccess: vi.fn(),
+    ...overrides,
+  }
+}
+
+function makeApp(options: {
+  admin?: BackendRecord | null
+  rateLimiter?: LoginRateLimiter
+  trustProxyHeader?: boolean
+} = {}) {
   const findAdminByEmail = vi.fn(async () => options.admin ?? undefined)
   const backend = { findAdminByEmail } as unknown as AdminBackend
   const app = createAuthRoutes({
@@ -23,6 +37,8 @@ function makeApp(options: { admin?: BackendRecord | null } = {}) {
     sessionSecret: SECRET,
     basePath: '',
     renderLogin: (props) => loginPage(props),
+    rateLimiter: options.rateLimiter,
+    trustProxyHeader: options.trustProxyHeader,
   })
   return { app, findAdminByEmail }
 }
@@ -38,12 +54,13 @@ async function getCsrf(app: Hono): Promise<{ cookie: string; token: string }> {
 async function postLogin(
   app: Hono,
   fields: Record<string, string>,
+  headers: Record<string, string> = {},
 ): Promise<Response> {
   const { cookie, token } = await getCsrf(app)
   const params = new URLSearchParams({ _csrf: token, ...fields })
   return app.request('/login', {
     method: 'POST',
-    headers: { Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded', ...headers },
     body: params.toString(),
   })
 }
@@ -139,6 +156,80 @@ describe('POST /login body validation', () => {
     await postLogin(app, { email: '  Admin@Test.com  ', password: 'whatever' })
 
     expect(findAdminByEmail).toHaveBeenCalledWith({}, 'Admin@Test.com')
+  })
+
+  it('returns 429 without touching the backend or bcrypt when rate limited', async () => {
+    const compareSpy = vi.spyOn(bcrypt, 'compare')
+    const rateLimiter = makeStubLimiter({ isLimited: vi.fn(() => true) })
+    const { app, findAdminByEmail } = makeApp({ rateLimiter })
+
+    const res = await postLogin(app, { email: 'victim@test.com', password: 'guess' })
+
+    expect(res.status).toBe(429)
+    expect(await res.text()).toContain('Too many attempts, try again later.')
+    expect(findAdminByEmail).not.toHaveBeenCalled()
+    expect(compareSpy).not.toHaveBeenCalled()
+    compareSpy.mockRestore()
+  })
+
+  it('records a failure for unknown emails and wrong passwords', async () => {
+    const unknownLimiter = makeStubLimiter()
+    const { app: unknownApp } = makeApp({ rateLimiter: unknownLimiter })
+    await postLogin(unknownApp, { email: 'ghost@test.com', password: 'guess' })
+    expect(unknownLimiter.recordFailure).toHaveBeenCalledWith(null, 'ghost@test.com')
+
+    const wrongPasswordLimiter = makeStubLimiter()
+    const { app: knownApp } = makeApp({
+      admin: { id: 1, email: 'admin@test.com', passwordHash },
+      rateLimiter: wrongPasswordLimiter,
+    })
+    await postLogin(knownApp, { email: 'admin@test.com', password: 'wrong-password' })
+    expect(wrongPasswordLimiter.recordFailure).toHaveBeenCalledWith(null, 'admin@test.com')
+  })
+
+  it('records a success that clears the email counter on valid login', async () => {
+    const rateLimiter = makeStubLimiter()
+    const { app } = makeApp({
+      admin: { id: 1, email: 'admin@test.com', passwordHash },
+      rateLimiter,
+    })
+    await postLogin(app, { email: 'admin@test.com', password: 'correct-password' })
+
+    expect(rateLimiter.recordSuccess).toHaveBeenCalledWith('admin@test.com')
+    expect(rateLimiter.recordFailure).not.toHaveBeenCalled()
+  })
+
+  it('uses the first x-forwarded-for entry as identifier only when the proxy is trusted', async () => {
+    const trustedLimiter = makeStubLimiter()
+    const { app: trustedApp } = makeApp({ rateLimiter: trustedLimiter, trustProxyHeader: true })
+    await postLogin(
+      trustedApp,
+      { email: 'ghost@test.com', password: 'guess' },
+      { 'x-forwarded-for': '203.0.113.9, 10.0.0.1' },
+    )
+    expect(trustedLimiter.recordFailure).toHaveBeenCalledWith('203.0.113.9', 'ghost@test.com')
+
+    const untrustedLimiter = makeStubLimiter()
+    const { app: untrustedApp } = makeApp({ rateLimiter: untrustedLimiter })
+    await postLogin(
+      untrustedApp,
+      { email: 'ghost@test.com', password: 'guess' },
+      { 'x-forwarded-for': '203.0.113.9' },
+    )
+    expect(untrustedLimiter.recordFailure).toHaveBeenCalledWith(null, 'ghost@test.com')
+  })
+
+  it('rate limits end-to-end with the default limiter after repeated failures', async () => {
+    const { app, findAdminByEmail } = makeApp() // real in-memory limiter via default
+    for (let i = 0; i < 10; i++) {
+      const res = await postLogin(app, { email: 'victim@test.com', password: `guess-${i}` })
+      expect(res.status).toBe(200)
+    }
+    findAdminByEmail.mockClear()
+
+    const res = await postLogin(app, { email: 'victim@test.com', password: 'guess-again' })
+    expect(res.status).toBe(429)
+    expect(findAdminByEmail).not.toHaveBeenCalled()
   })
 
   it('still logs in successfully with valid credentials', async () => {

@@ -1,6 +1,7 @@
 import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyKnexDatabase, AnyPgDatabase, PersistenceResourceRef } from '@/types.ts'
 import type { KnexTableDefinition } from '@/resources/types.ts'
+import type { LoginRateLimitOptions } from '@/auth/rate-limit.ts'
 
 export interface BaseAdminConfig {
   /** The SQL dialect to use. Currently only `"postgresql"` is supported. */
@@ -20,6 +21,15 @@ export interface BaseAdminConfig {
   port?: number
   /** Base URL path where the admin panel is mounted. Defaults to `''` (root). */
   basePath?: string
+  /**
+   * Tuning for the login rate limiter. Defaults: 5 failures per client
+   * identifier per minute, 10 failures per email per 15 minutes.
+   *
+   * The built-in limiter is in-memory and per-process: counters are not
+   * shared across processes and reset on restart. In multi-process
+   * deployments each process enforces the limits independently.
+   */
+  loginRateLimit?: LoginRateLimitOptions
 }
 
 /** Configuration options for existing Drizzle ORM users. */

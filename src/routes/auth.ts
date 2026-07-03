@@ -4,6 +4,7 @@ import { verifyPassword } from '@/auth/password.ts'
 import { createToken } from '@/auth/jwt.ts'
 import { setAuthCookie, clearAuthCookie } from '@/auth/middleware.ts'
 import { setCsrfCookie, validateCsrf } from '@/auth/csrf.ts'
+import { createInMemoryLoginRateLimiter, getClientIdentifier, type LoginRateLimiter } from '@/auth/rate-limit.ts'
 import { adminUrl } from '@/utils/url.ts'
 
 interface AuthRoutesConfig<ActionDatabase = unknown, TableRef = unknown> {
@@ -12,6 +13,10 @@ interface AuthRoutesConfig<ActionDatabase = unknown, TableRef = unknown> {
   sessionSecret: string
   basePath: string
   renderLogin: (props: { error?: string; csrfToken: string; basePath: string }) => string
+  /** Failure throttle for the login form. Defaults to the in-memory single-process limiter. */
+  rateLimiter?: LoginRateLimiter
+  /** Trust `x-forwarded-for` for the rate-limit client identifier. Default: `false`. */
+  trustProxyHeader?: boolean
 }
 
 // RFC 5321 caps addresses at 254 octets; the password cap bounds CPU spent on
@@ -32,6 +37,8 @@ export function readCredentialField(value: unknown, maxLength: number): string |
 
 export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(config: AuthRoutesConfig<ActionDatabase, TableRef>): Hono {
   const { basePath } = config
+  const rateLimiter = config.rateLimiter ?? createInMemoryLoginRateLimiter()
+  const trustProxyHeader = config.trustProxyHeader ?? false
   const app = new Hono()
 
   app.get('/login', async (c) => {
@@ -67,9 +74,21 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       }))
     }
 
+    // Short-circuit before any DB or bcrypt work; never reveal which key tripped.
+    const identifier = getClientIdentifier(c, trustProxyHeader)
+    if (rateLimiter.isLimited(identifier, email)) {
+      const csrfToken = await setCsrfCookie(c, config.sessionSecret)
+      return c.html(config.renderLogin({
+        error: 'Too many attempts, try again later.',
+        csrfToken,
+        basePath,
+      }), 429)
+    }
+
     const admin = await config.backend.findAdminByEmail(config.adminUsers, email)
 
     if (!admin) {
+      rateLimiter.recordFailure(identifier, email)
       const csrfToken = await setCsrfCookie(c, config.sessionSecret)
       return c.html(config.renderLogin({
         error: 'Invalid email or password.',
@@ -80,6 +99,7 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
 
     const valid = await verifyPassword(password, admin.passwordHash as string)
     if (!valid) {
+      rateLimiter.recordFailure(identifier, email)
       const csrfToken = await setCsrfCookie(c, config.sessionSecret)
       return c.html(config.renderLogin({
         error: 'Invalid email or password.',
@@ -87,6 +107,8 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
         basePath,
       }))
     }
+
+    rateLimiter.recordSuccess(email)
 
     const token = await createToken(
       { adminId: admin.id as number, email: admin.email as string },
