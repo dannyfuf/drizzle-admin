@@ -119,10 +119,18 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
     return c.redirect(adminUrl(basePath, '/'))
   })
 
-  app.all('/logout', (c) => {
+  app.post('/logout', async (c) => {
+    const csrfValid = await validateCsrf(c, config.sessionSecret)
+    if (!csrfValid) {
+      return c.redirect(adminUrl(basePath, '/'))
+    }
     clearAuthCookie(c, basePath)
     return c.redirect(adminUrl(basePath, '/login'))
   })
+
+  // Old bookmarks still resolve, but a cross-site GET (link, img, redirect)
+  // can no longer force a logout: the session is left untouched.
+  app.get('/logout', (c) => c.redirect(adminUrl(basePath, '/')))
 
   return app
 }

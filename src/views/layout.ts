@@ -4,6 +4,7 @@ import type { FlashMessage } from '@/utils/flash.ts'
 import { styles, tailwindScript } from '@/views/styles.ts'
 import { renderFlash, escapeHtml } from '@/views/components/flash.ts'
 import { modalScript } from '@/views/components/modal.ts'
+import { csrfInput } from '@/auth/csrf.ts'
 import { adminUrl } from '@/utils/url.ts'
 
 export interface LayoutProps<TableRef = unknown, ActionDatabase = never> {
@@ -13,12 +14,14 @@ export interface LayoutProps<TableRef = unknown, ActionDatabase = never> {
   resources: ResourceDefinition<TableRef, ActionDatabase>[]
   currentPath: string
   basePath: string
+  /** Token embedded in the sign-out form; logout is POST-only and CSRF-checked. */
+  csrfToken: string
   flash?: FlashMessage | null
   modals?: string
 }
 
 export function layout<TableRef, ActionDatabase>(props: LayoutProps<TableRef, ActionDatabase>): string {
-  const { title, content, admin, resources, currentPath, basePath, flash, modals } = props
+  const { title, content, admin, resources, currentPath, basePath, csrfToken, flash, modals } = props
 
   return `
 <!DOCTYPE html>
@@ -46,7 +49,10 @@ export function layout<TableRef, ActionDatabase>(props: LayoutProps<TableRef, Ac
       </nav>
       <div class="p-4 border-t border-zinc-800">
         <div class="${styles.textMuted} text-sm truncate">${escapeHtml(admin.email)}</div>
-        <a href="${adminUrl(basePath, '/logout')}" class="${styles.textMuted} text-sm hover:text-zinc-100">Sign out</a>
+        <form method="POST" action="${adminUrl(basePath, '/logout')}">
+          ${csrfInput(csrfToken)}
+          <button type="submit" class="${styles.textMuted} text-sm hover:text-zinc-100 cursor-pointer">Sign out</button>
+        </form>
       </div>
     </aside>
 

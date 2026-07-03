@@ -23,6 +23,7 @@ const baseProps = {
   resources: [makeResource()],
   currentPath: '/cards',
   basePath: '',
+  csrfToken: 'test-csrf-token',
 }
 
 describe('layout', () => {
@@ -58,10 +59,12 @@ describe('layout', () => {
     expect(html).toContain('admin@example.com')
   })
 
-  it('includes sign out link', () => {
+  it('renders sign out as a CSRF-protected POST form, not a link', () => {
     const html = layout(baseProps)
     expect(html).toContain('Sign out')
-    expect(html).toContain('/logout')
+    expect(html).toContain('<form method="POST" action="/logout">')
+    expect(html).toContain('name="_csrf" value="test-csrf-token"')
+    expect(html).not.toContain('<a href="/logout"')
   })
 
   it('renders flash message when provided', () => {

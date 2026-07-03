@@ -195,10 +195,42 @@ describe('Routing integration with basePath', () => {
       expect(res.headers.get('Location')).toBe('/admin/posts')
     })
 
-    it('GET /admin/logout redirects to /admin/login and clears cookie', async () => {
+    it('GET /admin/logout redirects home without clearing the session', async () => {
       const cookie = await makeAuthCookie()
       const res = await parentApp.request('/admin/logout', {
         headers: { Cookie: cookie },
+        redirect: 'manual',
+      })
+      expect(res.status).toBe(302)
+      expect(res.headers.get('Location')).toBe('/admin/')
+      expect(res.headers.get('set-cookie')).toBeNull()
+    })
+
+    it('POST /admin/logout without CSRF redirects home without clearing the session', async () => {
+      const cookie = await makeAuthCookie()
+      const res = await parentApp.request('/admin/logout', {
+        method: 'POST',
+        headers: { Cookie: cookie },
+        redirect: 'manual',
+      })
+      expect(res.status).toBe(302)
+      expect(res.headers.get('Location')).toBe('/admin/')
+      expect(res.headers.get('set-cookie')).toBeNull()
+    })
+
+    it('POST /admin/logout with CSRF clears the session and redirects to login', async () => {
+      const sessionCookie = await makeAuthCookie()
+      const loginRes = await parentApp.request('/admin/login')
+      const csrfToken = (loginRes.headers.get('set-cookie') ?? '').match(/_csrf=([^;]+)/)?.[1]
+      expect(csrfToken).toBeTruthy()
+
+      const res = await parentApp.request('/admin/logout', {
+        method: 'POST',
+        headers: {
+          Cookie: `${sessionCookie}; _csrf=${csrfToken}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ _csrf: csrfToken! }).toString(),
         redirect: 'manual',
       })
       expect(res.status).toBe(302)
@@ -206,6 +238,16 @@ describe('Routing integration with basePath', () => {
       const setCookieHeader = res.headers.get('set-cookie') ?? ''
       expect(setCookieHeader).toContain('admin_session=')
       expect(setCookieHeader).toContain('Max-Age=0')
+    })
+
+    it('renders the sign-out POST form on authenticated pages', async () => {
+      const cookie = await makeAuthCookie()
+      const res = await parentApp.request('/admin/posts', {
+        headers: { Cookie: cookie },
+      })
+      const html = await res.text()
+      expect(html).toContain('<form method="POST" action="/admin/logout">')
+      expect(html).toContain('name="_csrf"')
     })
   })
 

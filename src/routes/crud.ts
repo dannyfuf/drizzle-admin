@@ -76,6 +76,7 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       resources: allResources,
       currentPath: `/${resource.routePath}`,
       basePath,
+      csrfToken,
       flash,
     }))
   })
@@ -99,6 +100,7 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       resources: allResources,
       currentPath: `/${resource.routePath}`,
       basePath,
+      csrfToken,
     }))
   })
 
@@ -152,6 +154,7 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       resources: allResources,
       currentPath: `/${resource.routePath}`,
       basePath,
+      csrfToken,
       flash,
       modals,
     }))
@@ -184,6 +187,7 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       resources: allResources,
       currentPath: `/${resource.routePath}`,
       basePath,
+      csrfToken,
     }))
   })
 
