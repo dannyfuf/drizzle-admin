@@ -14,6 +14,22 @@ interface AuthRoutesConfig<ActionDatabase = unknown, TableRef = unknown> {
   renderLogin: (props: { error?: string; csrfToken: string; basePath: string }) => string
 }
 
+// RFC 5321 caps addresses at 254 octets; the password cap bounds CPU spent on
+// oversized input (bcrypt only reads the first 72 bytes anyway).
+const EMAIL_MAX_LENGTH = 254
+const PASSWORD_MAX_LENGTH = 256
+
+/**
+ * Narrows a parseBody value to a plain, non-empty, bounded string. Hono's
+ * parseBody can yield arrays (duplicate fields) or File objects (multipart
+ * uploads); both must be rejected — not coerced — before any DB or bcrypt work.
+ */
+export function readCredentialField(value: unknown, maxLength: number): string | null {
+  if (typeof value !== 'string') return null
+  if (value.length === 0 || value.length > maxLength) return null
+  return value
+}
+
 export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(config: AuthRoutesConfig<ActionDatabase, TableRef>): Hono {
   const { basePath } = config
   const app = new Hono()
@@ -36,13 +52,16 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
     }
 
     const body = await c.req.parseBody()
-    const email = body.email as string
-    const password = body.password as string
+    const email = readCredentialField(
+      typeof body.email === 'string' ? body.email.trim() : body.email,
+      EMAIL_MAX_LENGTH,
+    )
+    const password = readCredentialField(body.password, PASSWORD_MAX_LENGTH)
 
-    if (!email || !password) {
+    if (email === null || password === null) {
       const csrfToken = await setCsrfCookie(c, config.sessionSecret)
       return c.html(config.renderLogin({
-        error: 'Email and password are required.',
+        error: 'Invalid email or password.',
         csrfToken,
         basePath,
       }))

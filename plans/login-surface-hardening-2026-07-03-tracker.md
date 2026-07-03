@@ -16,7 +16,7 @@
 
 ## Tasks
 - [x] T01 — Enforce sessionSecret strength at construction — verified: `pnpm typecheck && pnpm test` → 347 tests / 35 files passing. Note: test fixtures across 4 suites used sub-32-char secrets and were lengthened.
-- [ ] T02 — Strictly validate the login request body
+- [x] T02 — Strictly validate the login request body — verified: `pnpm typecheck && pnpm test` → 359 tests / 36 files passing. Note: the old distinct "Email and password are required." message was collapsed into the generic "Invalid email or password." so no validation branch is distinguishable.
 - [ ] T03 — Close the email-enumeration timing oracle and the null-hash crash
 - [ ] T04 — Throttle login attempts
 - [ ] T05 — Make logout POST-only with CSRF validation
