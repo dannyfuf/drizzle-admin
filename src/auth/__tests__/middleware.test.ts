@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { Hono } from 'hono'
 import { authMiddleware } from '@/auth/middleware.ts'
 import { generateCsrfToken } from '@/auth/csrf.ts'
+import { createToken } from '@/auth/jwt.ts'
 
 const SECRET = 'test-secret-at-least-32-chars-long!'
 
@@ -13,14 +14,42 @@ function makeProtectedApp() {
 }
 
 describe('authMiddleware token-type separation', () => {
-  // T01 reproduction: a CSRF token is a validly-signed JWT minted with the same
-  // secret. Against the vulnerable code it is accepted as a session, so this
-  // request reaches the protected handler. T04 inverts this to assert rejection.
-  it('DEMONSTRATES BYPASS: a CSRF token is currently accepted as an admin_session', async () => {
+  // Regression for the auth bypass: a CSRF token is a validly-signed JWT minted
+  // with the same secret, but it is typed `csrf`, so it must NOT authenticate.
+  it('rejects a CSRF token presented as an admin_session cookie', async () => {
     const csrfToken = await generateCsrfToken(SECRET)
 
     const res = await makeProtectedApp().request('/protected', {
       headers: { Cookie: `admin_session=${csrfToken}` },
+      redirect: 'manual',
+    })
+
+    expect(res.status).toBe(302)
+    expect(res.headers.get('Location')).toBe('/login')
+  })
+
+  it('clears the admin_session cookie when it is not a session token', async () => {
+    const csrfToken = await generateCsrfToken(SECRET)
+
+    const res = await makeProtectedApp().request('/protected', {
+      headers: { Cookie: `admin_session=${csrfToken}` },
+      redirect: 'manual',
+    })
+
+    const setCookieHeader = res.headers.get('set-cookie') ?? ''
+    expect(setCookieHeader).toContain('admin_session=')
+    expect(setCookieHeader).toContain('Max-Age=0')
+  })
+
+  it('accepts a legitimately issued session token', async () => {
+    const sessionToken = await createToken(
+      { adminId: 1, email: 'admin@test.com' },
+      SECRET,
+      'session'
+    )
+
+    const res = await makeProtectedApp().request('/protected', {
+      headers: { Cookie: `admin_session=${sessionToken}` },
       redirect: 'manual',
     })
 

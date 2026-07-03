@@ -145,7 +145,7 @@ function makeConfig(overrides: Partial<DrizzleBackendConfig> = {}): DrizzleBacke
 }
 
 async function makeAuthCookie(): Promise<string> {
-  const token = await createToken({ adminId: 1, email: 'admin@test.com' }, SESSION_SECRET)
+  const token = await createToken({ adminId: 1, email: 'admin@test.com' }, SESSION_SECRET, 'session')
   return `admin_session=${token}`
 }
 

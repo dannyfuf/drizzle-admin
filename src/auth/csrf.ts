@@ -6,7 +6,7 @@ const CSRF_COOKIE_NAME = '_csrf'
 const CSRF_FIELD_NAME = '_csrf'
 
 export async function generateCsrfToken(secret: string): Promise<string> {
-  return createToken({ adminId: 0, email: 'csrf' }, secret)
+  return createToken({ adminId: 0, email: 'csrf' }, secret, 'csrf')
 }
 
 export async function setCsrfCookie(
@@ -34,7 +34,7 @@ export async function validateCsrf(
   if (!cookieToken || !formToken) return false
   if (cookieToken !== formToken) return false
 
-  const payload = await verifyToken(cookieToken, secret)
+  const payload = await verifyToken(cookieToken, secret, 'csrf')
   return payload !== null
 }
 

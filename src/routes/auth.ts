@@ -71,7 +71,8 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
 
     const token = await createToken(
       { adminId: admin.id as number, email: admin.email as string },
-      config.sessionSecret
+      config.sessionSecret,
+      'session'
     )
     setAuthCookie(c, token, basePath)
 
