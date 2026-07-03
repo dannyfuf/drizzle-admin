@@ -147,12 +147,12 @@ There is no lint script in this repo. The full suite must stay green (baseline: 
 
 ## Definition of done
 
-- [ ] All tasks T01–T08 checked off in the tracker.
-- [ ] `pnpm typecheck` clean.
-- [ ] `pnpm test` passing (baseline suite plus all new hardening tests).
-- [ ] Tracker reflects reality — statuses, notes, and any added tasks match the code as committed.
-- [ ] README security-model section merged.
-- [ ] Follow-ups discovered mid-flight captured in the tracker's Follow-ups section (candidates already known: session revocation store, MFA, audit logging, distributed rate limiting).
+- [x] All tasks T01–T08 checked off in the tracker.
+- [x] `pnpm typecheck` clean.
+- [x] `pnpm test` passing (baseline suite plus all new hardening tests — 391 tests / 38 files).
+- [x] Tracker reflects reality — statuses, notes, and any added tasks match the code as committed.
+- [x] README security-model section merged.
+- [x] Follow-ups discovered mid-flight captured in the tracker's Follow-ups section (candidates already known: session revocation store, MFA, audit logging, distributed rate limiting).
 
 ## Risks and rollback
 

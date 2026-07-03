@@ -22,13 +22,15 @@
 - [x] T05 — Make logout POST-only with CSRF validation — verified: `pnpm typecheck && pnpm test` → 380 tests / 37 files passing. Layout now requires `csrfToken` (all 4 call sites in crud.ts already minted one); GET /logout redirects to app root without touching the session.
 - [x] T06 — Fix cookie-clear path mismatch and add no-store to auth pages — verified: `pnpm typecheck && pnpm test` → 382 tests / 37 files passing. Refactored the login-render repetition into a `renderLoginPage` helper that always sets `Cache-Control: no-store`.
 - [x] T07 — Give CSRF tokens per-issue uniqueness — verified: `pnpm typecheck && pnpm test` → 385 tests / 37 files passing. `createToken` gained an optional `{ jti }` options bag; session tokens are unchanged (no jti unless passed).
-- [ ] T08 — Consolidate security regression tests and document the security model
+- [x] T08 — Consolidate security regression tests and document the security model — verified: `pnpm typecheck && pnpm test` → 391 tests / 38 files passing. `login-hardening.test.ts` is the attacker checklist (replay, aud confusion, brute force, enumeration, GET logout, weak secret); README gained the "Security model" section with guarantees and non-goals.
 
 ## Notes / decisions log
 (Append-only. Date-stamp entries. Capture anything that surprised you or that future-you will want.)
 
 - 2026-07-03 — Plan created from the post-bypass security review. The token-type bypass itself was already fixed in `a423686` (see ./login-auth-bypass-2026-07-03-plan.md); this plan is the follow-on hardening pass.
 - 2026-07-03 — Suggested landing order: T01 → T02 → T03+T04 (land together or T04 first; T03 adds a bcrypt compare to unknown-email requests that T04 bounds) → T05 → T06 → T07 → T08.
+- 2026-07-03 — Implementation complete, landed in order T01 → T02 → T04 → T03 → T05 → T06 → T07 → T08, one commit per task on main. Final state: 391 tests / 38 files, typecheck clean (baseline was 342 / 35).
+- 2026-07-03 — Surprises worth remembering: (a) four test suites used sub-32-char session secrets and had to be updated for T01; (b) the rate limiter takes `identifier: string | null` — when the runtime exposes no client IP and no trusted proxy header, only the per-email limit applies, deliberately avoiding a shared "unknown" bucket that would let one attacker 429 everyone; (c) "byte-identical error pages" in T03 is asserted after normalizing the per-response CSRF token, the only legitimate difference; (d) T02 collapsed the old "Email and password are required." message into the generic error so no validation branch is distinguishable.
 
 ## Follow-ups
 (Things discovered mid-flight that are out of scope for this plan. Each gets a one-line description.)

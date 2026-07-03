@@ -301,10 +301,11 @@ Call `Model.configure({ connection, schema })` before `DrizzleAdmin.build()` or 
 | `dialect` | `'postgresql'` | Yes | - | Database dialect (only PostgreSQL supported currently) |
 | `adminUsers` | Drizzle table, Knex metadata, or Persistence repository factory | Yes | - | Table/model for admin user authentication |
 | `backend` | `'drizzle' \| 'knex' \| 'persistence'` | No | `'drizzle'` | Use `'knex'` for Knex mode or `'persistence'` for Persistence ORM mode |
-| `sessionSecret` | `string` | Yes | - | Secret key for signing JWT tokens (use a strong random string) |
+| `sessionSecret` | `string` | Yes | - | Secret key for signing JWT tokens. Must be at least 32 characters (the constructor throws otherwise) — see [Security model](#security-model) |
 | `resourcesDir` | `string` | Yes | - | Path to directory containing resource definition files |
 | `port` | `number` | No | `3001` | Port to run the admin server on |
 | `basePath` | `string` | No | `''` | Base URL path where the admin panel is mounted (e.g. `'/admin'`) |
+| `loginRateLimit` | `LoginRateLimitOptions` | No | see [Security model](#security-model) | Tuning for the built-in login rate limiter (thresholds, windows, `trustProxyHeader`) |
 
 ### `basePath`
 
@@ -981,6 +982,53 @@ Returns the Hono sub-app from a handler. Import from `drizzle-admin/hono`.
 ### `expressAdapter(handler: DrizzleAdminHandler): NodeMiddleware`
 
 Converts a handler into Express/Connect-compatible middleware. Import from `drizzle-admin/express`.
+
+## Security model
+
+DrizzleAdmin exposes real database data behind a single email/password login. This section states exactly what that login guarantees — and what it deliberately does not.
+
+### Session secret
+
+- `sessionSecret` must be **at least 32 characters**; the constructor throws otherwise. Every session and CSRF token is an HS256 JWT signed with this one key, so its strength is the ceiling of the whole auth system.
+- Generate it from random bytes and keep it out of source control:
+
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ```
+
+- Rotating the secret immediately invalidates all outstanding sessions and CSRF tokens.
+
+### Sessions
+
+- Sessions are **stateless JWTs** valid for 24 hours, held in an `HttpOnly`, `SameSite=Strict` cookie scoped to `basePath`.
+- There is **no server-side revocation**: logout clears the browser cookie, but a captured token remains valid until it expires. If a token is compromised, rotate `sessionSecret`.
+- Cookies are marked `Secure` only when `NODE_ENV=production`. Always run the admin behind HTTPS in production.
+
+### Login throttling
+
+- Failed logins are rate limited with two independent fixed windows: **5 failures per client identifier per minute** and **10 failures per email per 15 minutes** (HTTP 429 once tripped). Successful login clears the email counter. Thresholds and windows are configurable via `loginRateLimit`.
+- The client identifier is the socket address; `x-forwarded-for` is honored only if you opt in with `loginRateLimit.trustProxyHeader` (do this only behind a proxy you control). When no identifier is available, the per-email limit still applies.
+- The built-in limiter is **in-memory and per-process**: counters reset on restart and are not shared between processes, so in multi-process deployments each process enforces the limits independently.
+- Login failures are timing-uniform: unknown emails, broken stored hashes, and wrong passwords all cost one bcrypt compare and return the same generic response, so account existence cannot be probed.
+
+### CSRF
+
+- All mutating routes (login, logout, create/update/delete, custom actions) use signed double-submit tokens: the token must appear in both a cookie and the form body, carry a valid signature, and be typed `csrf` (a session token can never pass as a CSRF token, nor vice versa). Each issued token includes a random `jti`, so no two tokens are interchangeable.
+- Logout is POST-only and CSRF-checked; a cross-site GET cannot terminate a session.
+
+### Passwords
+
+- Stored as bcrypt hashes with 12 rounds (`hashPassword` / `seed()`).
+
+### Deliberate non-goals
+
+Weigh these before exposing the panel beyond a trusted network:
+
+- **No MFA/TOTP.**
+- **No audit logging** of login attempts or admin actions.
+- **No distributed rate limiting** (no Redis-style shared store; the limiter interface is injectable if you need one).
+- **No session revocation store** — see Sessions above.
+- **No password complexity policy** for `seed()`-created admins.
 
 ## Development
 
