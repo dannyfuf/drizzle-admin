@@ -158,6 +158,58 @@ describe('POST /login body validation', () => {
     expect(findAdminByEmail).toHaveBeenCalledWith({}, 'Admin@Test.com')
   })
 
+  it('performs exactly one bcrypt compare whether the email exists or not', async () => {
+    const compareSpy = vi.spyOn(bcrypt, 'compare')
+
+    const { app: unknownApp } = makeApp()
+    await postLogin(unknownApp, { email: 'ghost@test.com', password: 'guess' })
+    expect(compareSpy).toHaveBeenCalledTimes(1)
+
+    compareSpy.mockClear()
+    const { app: knownApp } = makeApp({
+      admin: { id: 1, email: 'admin@test.com', passwordHash },
+    })
+    await postLogin(knownApp, { email: 'admin@test.com', password: 'guess' })
+    expect(compareSpy).toHaveBeenCalledTimes(1)
+
+    compareSpy.mockRestore()
+  })
+
+  it('returns indistinguishable error pages for unknown and known emails', async () => {
+    // The CSRF token is the only legitimate per-response difference; normalize it.
+    const normalize = (html: string) => html.replace(/name="_csrf" value="[^"]*"/g, 'name="_csrf" value=""')
+
+    const { app: unknownApp } = makeApp()
+    const unknownRes = await postLogin(unknownApp, { email: 'ghost@test.com', password: 'guess' })
+
+    const { app: knownApp } = makeApp({
+      admin: { id: 1, email: 'admin@test.com', passwordHash },
+    })
+    const knownRes = await postLogin(knownApp, { email: 'admin@test.com', password: 'guess' })
+
+    expect(unknownRes.status).toBe(knownRes.status)
+    expect(normalize(await unknownRes.text())).toBe(normalize(await knownRes.text()))
+  })
+
+  it.each([
+    ['null', null],
+    ['empty string', ''],
+    ['non-string', 12345],
+  ])('fails generically instead of crashing when the stored hash is %s', async (_label, badHash) => {
+    const compareSpy = vi.spyOn(bcrypt, 'compare')
+    const { app } = makeApp({
+      admin: { id: 1, email: 'admin@test.com', passwordHash: badHash },
+    })
+
+    const res = await postLogin(app, { email: 'admin@test.com', password: 'guess' })
+
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain(GENERIC_ERROR)
+    // The dummy compare keeps this branch timing-uniform too.
+    expect(compareSpy).toHaveBeenCalledTimes(1)
+    compareSpy.mockRestore()
+  })
+
   it('returns 429 without touching the backend or bcrypt when rate limited', async () => {
     const compareSpy = vi.spyOn(bcrypt, 'compare')
     const rateLimiter = makeStubLimiter({ isLimited: vi.fn(() => true) })

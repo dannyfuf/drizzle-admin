@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { AdminBackend } from '@/backends/types.ts'
-import { verifyPassword } from '@/auth/password.ts'
+import { dummyPasswordCompare, verifyPassword } from '@/auth/password.ts'
 import { createToken } from '@/auth/jwt.ts'
 import { setAuthCookie, clearAuthCookie } from '@/auth/middleware.ts'
 import { setCsrfCookie, validateCsrf } from '@/auth/csrf.ts'
@@ -87,18 +87,17 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
 
     const admin = await config.backend.findAdminByEmail(config.adminUsers, email)
 
-    if (!admin) {
-      rateLimiter.recordFailure(identifier, email)
-      const csrfToken = await setCsrfCookie(c, config.sessionSecret)
-      return c.html(config.renderLogin({
-        error: 'Invalid email or password.',
-        csrfToken,
-        basePath,
-      }))
-    }
+    // Unknown email, broken stored hash, and wrong password must all cost
+    // exactly one bcrypt compare and share one response, so neither timing nor
+    // content reveals whether the email exists.
+    const storedHash = admin && typeof admin.passwordHash === 'string' && admin.passwordHash.length > 0
+      ? admin.passwordHash
+      : null
+    const valid = storedHash !== null
+      ? await verifyPassword(password, storedHash)
+      : await dummyPasswordCompare(password)
 
-    const valid = await verifyPassword(password, admin.passwordHash as string)
-    if (!valid) {
+    if (!admin || !valid) {
       rateLimiter.recordFailure(identifier, email)
       const csrfToken = await setCsrfCookie(c, config.sessionSecret)
       return c.html(config.renderLogin({

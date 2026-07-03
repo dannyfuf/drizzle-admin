@@ -25,3 +25,17 @@ export async function verifyPassword(
 ): Promise<boolean> {
   return bcrypt.compare(password, hash);
 }
+
+// Pre-generated 12-round hash of a discarded random value; no input can match it.
+const DUMMY_HASH = "$2a$12$OEaomAAOeWzTNFbUlb5nBOrXzARn6YSYo3TbdcnluN7NkGPE0DRqO";
+
+/**
+ * Burns one bcrypt compare and always fails. Used on login when there is no
+ * usable stored hash (unknown email, or a null/empty `passwordHash` row) so
+ * that branch costs the same as a real comparison and response timing cannot
+ * reveal whether an email exists.
+ */
+export async function dummyPasswordCompare(password: string): Promise<false> {
+  await bcrypt.compare(password, DUMMY_HASH);
+  return false;
+}

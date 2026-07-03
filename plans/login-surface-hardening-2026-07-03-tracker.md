@@ -17,7 +17,7 @@
 ## Tasks
 - [x] T01 — Enforce sessionSecret strength at construction — verified: `pnpm typecheck && pnpm test` → 347 tests / 35 files passing. Note: test fixtures across 4 suites used sub-32-char secrets and were lengthened.
 - [x] T02 — Strictly validate the login request body — verified: `pnpm typecheck && pnpm test` → 359 tests / 36 files passing. Note: the old distinct "Email and password are required." message was collapsed into the generic "Invalid email or password." so no validation branch is distinguishable.
-- [ ] T03 — Close the email-enumeration timing oracle and the null-hash crash
+- [x] T03 — Close the email-enumeration timing oracle and the null-hash crash — verified: `pnpm typecheck && pnpm test` → 377 tests / 37 files passing. Used the bcrypt-spy approach (exactly one compare per failure branch) instead of wall-clock timing, as the plan preferred. Error pages compared byte-identical after normalizing the per-response CSRF token.
 - [x] T04 — Throttle login attempts (landed before T03 per the suggested order) — verified: `pnpm typecheck && pnpm test` → 372 tests / 37 files passing. Limiter interface accepts `identifier: string | null`; when the runtime exposes no client IP (and no trusted proxy header), only the per-email limit applies — avoids a shared "unknown" bucket that would let one attacker lock out everyone.
 - [ ] T05 — Make logout POST-only with CSRF validation
 - [ ] T06 — Fix cookie-clear path mismatch and add no-store to auth pages
