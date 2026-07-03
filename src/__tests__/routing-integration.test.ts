@@ -74,7 +74,7 @@ import { DrizzleAdmin } from '@/DrizzleAdmin.ts'
 
 // --- Helpers ---
 
-const SESSION_SECRET = 'test-secret-for-integration'
+const SESSION_SECRET = 'test-secret-for-integration-32-chars!'
 
 function makeAdminUsers() {
   return {

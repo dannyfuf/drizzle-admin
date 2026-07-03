@@ -43,7 +43,7 @@ vi.mock('@/resources/loader.ts', () => ({
 
 import { DrizzleAdmin } from '@/DrizzleAdmin.ts'
 
-const SESSION_SECRET = 'knex-routing-secret'
+const SESSION_SECRET = 'knex-routing-secret-at-least-32-chars!'
 
 describe('Knex routing integration', () => {
   let app: Awaited<ReturnType<DrizzleAdmin['build']>>['app']

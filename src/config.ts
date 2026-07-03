@@ -5,7 +5,14 @@ import type { KnexTableDefinition } from '@/resources/types.ts'
 export interface BaseAdminConfig {
   /** The SQL dialect to use. Currently only `"postgresql"` is supported. */
   dialect: 'postgresql' | 'mysql' | 'sqlite'
-  /** Secret used for signing JWT session tokens. */
+  /**
+   * Secret used for signing JWT session and CSRF tokens (HS256).
+   *
+   * Must be at least 32 characters — the `DrizzleAdmin` constructor throws
+   * otherwise. Generate 32+ random bytes (e.g.
+   * `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
+   * Rotating the secret invalidates all existing sessions.
+   */
   sessionSecret: string
   /** Path to the directory containing resource definition files. */
   resourcesDir: string

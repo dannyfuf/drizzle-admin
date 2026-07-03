@@ -198,7 +198,7 @@ vi.mock('@/resources/loader.ts', () => ({
 
 import { DrizzleAdmin } from '@/DrizzleAdmin.ts'
 
-const SESSION_SECRET = 'persistence-routing-secret'
+const SESSION_SECRET = 'persistence-routing-secret-32-chars!'
 
 describe('Persistence routing integration', () => {
   let app: Awaited<ReturnType<DrizzleAdmin['build']>>['app']

@@ -57,7 +57,7 @@ function makeConfig(overrides: Partial<DrizzleBackendConfig> = {}): DrizzleBacke
     db: {} as AnyPgDatabase,
     dialect: 'postgresql',
     adminUsers: makeAdminUsers() as unknown as PgTable,
-    sessionSecret: 'test-secret',
+    sessionSecret: 'test-secret-at-least-32-chars-long!',
     resourcesDir: './resources',
     ...overrides,
   }
@@ -87,7 +87,7 @@ describe('DrizzleAdmin', () => {
         db: {} as AnyKnexDatabase,
         dialect: 'sqlite',
         adminUsers: makeKnexAdminUsers(),
-        sessionSecret: 'test-secret',
+        sessionSecret: 'test-secret-at-least-32-chars-long!',
         resourcesDir: './resources',
       })
     }).toThrow('Knex backend only supports dialect "postgresql"')
@@ -109,6 +109,40 @@ describe('DrizzleAdmin', () => {
   it('returns empty resources before initialization', () => {
     const admin = new DrizzleAdmin(makeConfig())
     expect(admin.getResources()).toEqual([])
+  })
+
+  describe('sessionSecret validation', () => {
+    it('throws when sessionSecret is shorter than 32 characters', () => {
+      expect(() => new DrizzleAdmin(makeConfig({ sessionSecret: 'too-short' }))).toThrow(
+        'sessionSecret must be a string of at least 32 characters'
+      )
+    })
+
+    it('throws when sessionSecret is missing', () => {
+      expect(() => new DrizzleAdmin(makeConfig({ sessionSecret: undefined as unknown as string }))).toThrow(
+        'sessionSecret must be a string of at least 32 characters'
+      )
+    })
+
+    it('throws when sessionSecret is not a string', () => {
+      expect(() => new DrizzleAdmin(makeConfig({ sessionSecret: 12345678901234567890123456789012 as unknown as string }))).toThrow(
+        'sessionSecret must be a string of at least 32 characters'
+      )
+    })
+
+    it('accepts a 32-character sessionSecret', () => {
+      expect(() => new DrizzleAdmin(makeConfig({ sessionSecret: 'a'.repeat(32) }))).not.toThrow()
+    })
+
+    it('never echoes the secret value back in the error message', () => {
+      const secret = 'super-secret-value'
+      try {
+        new DrizzleAdmin(makeConfig({ sessionSecret: secret }))
+        expect.unreachable('constructor should have thrown')
+      } catch (err) {
+        expect((err as Error).message).not.toContain(secret)
+      }
+    })
   })
 
   describe('basePath validation', () => {
@@ -183,7 +217,7 @@ describe('DrizzleAdmin', () => {
         db: db.instance,
         dialect: 'postgresql',
         adminUsers: makeKnexAdminUsers(),
-        sessionSecret: 'test-secret',
+        sessionSecret: 'test-secret-at-least-32-chars-long!',
         resourcesDir: './resources',
       })
 
@@ -206,7 +240,7 @@ describe('DrizzleAdmin', () => {
         db: db.instance,
         dialect: 'postgresql',
         adminUsers: makeKnexAdminUsers(),
-        sessionSecret: 'test-secret',
+        sessionSecret: 'test-secret-at-least-32-chars-long!',
         resourcesDir: './resources',
       })
 

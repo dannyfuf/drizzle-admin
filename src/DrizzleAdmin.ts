@@ -29,7 +29,8 @@ import type { AnyPgDatabase, PersistenceActionContext, PersistenceResourceRef } 
  *   db,
  *   dialect: "postgresql",
  *   adminUsers,
- *   sessionSecret: "secret",
+ *   // Must be at least 32 characters — generate 32+ random bytes and keep it out of source control.
+ *   sessionSecret: process.env.ADMIN_SESSION_SECRET!,
  *   resourcesDir: "./resources",
  * }));
  * await admin.start();
@@ -51,6 +52,13 @@ export class DrizzleAdmin {
 
   /** Creates a new DrizzleAdmin instance with the given configuration. */
   constructor(config: DrizzleAdminConfig) {
+    if (typeof config.sessionSecret !== "string" || config.sessionSecret.length < 32) {
+      throw new Error(
+        "sessionSecret must be a string of at least 32 characters. " +
+          "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
+      );
+    }
+
     this.config = config;
     this.app = new Hono();
     this.backend = createBackend(config);

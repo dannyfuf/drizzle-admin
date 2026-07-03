@@ -48,7 +48,7 @@ function makeConfig(overrides: Partial<DrizzleBackendConfig> = {}): DrizzleBacke
     db: {} as AnyPgDatabase,
     dialect: 'postgresql',
     adminUsers: makeAdminUsers() as unknown as PgTable,
-    sessionSecret: 'test-secret',
+    sessionSecret: 'test-secret-at-least-32-chars-long!',
     resourcesDir: './resources',
     ...overrides,
   }
