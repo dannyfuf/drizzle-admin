@@ -6,7 +6,14 @@ const CSRF_COOKIE_NAME = '_csrf'
 const CSRF_FIELD_NAME = '_csrf'
 
 export async function generateCsrfToken(secret: string): Promise<string> {
-  return createToken({ adminId: 0, email: 'csrf' }, secret, 'csrf')
+  // Without a random jti every CSRF token in a validity window would carry an
+  // identical payload, making all of them interchangeable across forms/tabs.
+  return createToken({ adminId: 0, email: 'csrf' }, secret, 'csrf', { jti: randomJti() })
+}
+
+function randomJti(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 export async function setCsrfCookie(

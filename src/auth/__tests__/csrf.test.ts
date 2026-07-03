@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Hono } from 'hono'
 import { csrfInput, generateCsrfToken, setCsrfCookie } from '@/auth/csrf.ts'
+import { verifyToken } from '@/auth/jwt.ts'
 
 describe('csrfInput', () => {
   it('returns a hidden input element with correct name and value', () => {
@@ -27,6 +28,21 @@ describe('generateCsrfToken', () => {
   it('returns a non-empty string', async () => {
     const token = await generateCsrfToken('secret')
     expect(token.length).toBeGreaterThan(0)
+  })
+
+  it('mints a unique token on every call', async () => {
+    const secret = 'per-issue-uniqueness-secret'
+    const first = await generateCsrfToken(secret)
+    const second = await generateCsrfToken(secret)
+    expect(first).not.toBe(second)
+  })
+
+  it('carries a random jti claim and still validates round-trip', async () => {
+    const secret = 'per-issue-uniqueness-secret'
+    const token = await generateCsrfToken(secret)
+    const payload = await verifyToken(token, secret, 'csrf')
+    expect(payload).not.toBeNull()
+    expect(payload!.jti).toMatch(/^[0-9a-f]{32}$/)
   })
 })
 

@@ -21,7 +21,7 @@
 - [x] T04 — Throttle login attempts (landed before T03 per the suggested order) — verified: `pnpm typecheck && pnpm test` → 372 tests / 37 files passing. Limiter interface accepts `identifier: string | null`; when the runtime exposes no client IP (and no trusted proxy header), only the per-email limit applies — avoids a shared "unknown" bucket that would let one attacker lock out everyone.
 - [x] T05 — Make logout POST-only with CSRF validation — verified: `pnpm typecheck && pnpm test` → 380 tests / 37 files passing. Layout now requires `csrfToken` (all 4 call sites in crud.ts already minted one); GET /logout redirects to app root without touching the session.
 - [x] T06 — Fix cookie-clear path mismatch and add no-store to auth pages — verified: `pnpm typecheck && pnpm test` → 382 tests / 37 files passing. Refactored the login-render repetition into a `renderLoginPage` helper that always sets `Cache-Control: no-store`.
-- [ ] T07 — Give CSRF tokens per-issue uniqueness
+- [x] T07 — Give CSRF tokens per-issue uniqueness — verified: `pnpm typecheck && pnpm test` → 385 tests / 37 files passing. `createToken` gained an optional `{ jti }` options bag; session tokens are unchanged (no jti unless passed).
 - [ ] T08 — Consolidate security regression tests and document the security model
 
 ## Notes / decisions log

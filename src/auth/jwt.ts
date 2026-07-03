@@ -18,16 +18,25 @@ export interface AdminTokenPayload extends JWTPayload {
 export async function createToken(
   payload: { adminId: number; email: string },
   secret: string,
-  type: TokenType
+  type: TokenType,
+  options?: {
+    /** Unique token id (`jti` claim) so identical payloads still mint distinct tokens. */
+    jti?: string
+  }
 ): Promise<string> {
   const secretKey = new TextEncoder().encode(secret)
 
-  return new SignJWT({ ...payload })
+  const jwt = new SignJWT({ ...payload })
     .setProtectedHeader({ alg: ALGORITHM })
     .setIssuedAt()
     .setAudience(type)
     .setExpirationTime(TOKEN_EXPIRY)
-    .sign(secretKey)
+
+  if (options?.jti) {
+    jwt.setJti(options.jti)
+  }
+
+  return jwt.sign(secretKey)
 }
 
 export async function verifyToken(

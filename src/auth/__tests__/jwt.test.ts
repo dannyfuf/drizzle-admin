@@ -29,6 +29,14 @@ describe('jwt', () => {
     expect(payload).toBeNull()
   })
 
+  it('createToken sets the jti claim only when one is provided', async () => {
+    const withJti = await createToken({ adminId: 1, email: 'test@test.com' }, TEST_SECRET, 'session', { jti: 'abc123' })
+    const withoutJti = await createToken({ adminId: 1, email: 'test@test.com' }, TEST_SECRET, 'session')
+
+    expect((await verifyToken(withJti, TEST_SECRET, 'session'))!.jti).toBe('abc123')
+    expect((await verifyToken(withoutJti, TEST_SECRET, 'session'))!.jti).toBeUndefined()
+  })
+
   it('verifyToken rejects a csrf token when a session token is expected', async () => {
     const csrfToken = await createToken({ adminId: 0, email: 'csrf' }, TEST_SECRET, 'csrf')
     const payload = await verifyToken(csrfToken, TEST_SECRET, 'session')
