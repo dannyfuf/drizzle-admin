@@ -41,6 +41,26 @@ describe('authMiddleware token-type separation', () => {
     expect(setCookieHeader).toContain('Max-Age=0')
   })
 
+  it('clears the rejected cookie at the basePath, matching where it was set', async () => {
+    const csrfToken = await generateCsrfToken(SECRET)
+
+    const app = new Hono()
+    app.use('*', authMiddleware(SECRET, '/admin'))
+    app.get('/protected', (c) => c.text('secret-data'))
+
+    const res = await app.request('/protected', {
+      headers: { Cookie: `admin_session=${csrfToken}` },
+      redirect: 'manual',
+    })
+
+    const setCookieHeader = res.headers.get('set-cookie') ?? ''
+    expect(setCookieHeader).toContain('admin_session=')
+    expect(setCookieHeader).toContain('Max-Age=0')
+    // setAuthCookie scopes the cookie to the basePath; clearing anywhere else
+    // leaves the stale cookie alive in the browser.
+    expect(setCookieHeader).toContain('Path=/admin')
+  })
+
   it('accepts a legitimately issued session token', async () => {
     const sessionToken = await createToken(
       { adminId: 1, email: 'admin@test.com' },

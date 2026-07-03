@@ -19,7 +19,7 @@ export function authMiddleware(sessionSecret: string, basePath: string = '') {
     const payload = await verifyToken(token, sessionSecret, "session");
 
     if (!payload) {
-      setCookie(c, AUTH_COOKIE_NAME, "", { maxAge: 0, path: "/" });
+      clearAuthCookie(c, basePath);
       return c.redirect(adminUrl(basePath, LOGIN_PATH));
     }
 

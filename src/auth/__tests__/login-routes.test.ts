@@ -284,6 +284,16 @@ describe('POST /login body validation', () => {
     expect(findAdminByEmail).not.toHaveBeenCalled()
   })
 
+  it('serves the login page and failed re-renders with Cache-Control: no-store', async () => {
+    const { app } = makeApp()
+
+    const getRes = await app.request('/login')
+    expect(getRes.headers.get('cache-control')).toBe('no-store')
+
+    const failedPost = await postLogin(app, { email: 'ghost@test.com', password: 'guess' })
+    expect(failedPost.headers.get('cache-control')).toBe('no-store')
+  })
+
   it('still logs in successfully with valid credentials', async () => {
     const { app } = makeApp({
       admin: { id: 1, email: 'admin@test.com', passwordHash },

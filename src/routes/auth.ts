@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+import type { Context } from 'hono'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import type { AdminBackend } from '@/backends/types.ts'
 import { dummyPasswordCompare, verifyPassword } from '@/auth/password.ts'
 import { createToken } from '@/auth/jwt.ts'
@@ -41,21 +43,20 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
   const trustProxyHeader = config.trustProxyHeader ?? false
   const app = new Hono()
 
-  app.get('/login', async (c) => {
+  // Login pages carry a fresh CSRF token and error details for one viewer
+  // only — they must never land in a shared cache.
+  async function renderLoginPage(c: Context, error?: string, status?: ContentfulStatusCode) {
     const csrfToken = await setCsrfCookie(c, config.sessionSecret)
-    const html = config.renderLogin({ csrfToken, basePath })
-    return c.html(html)
-  })
+    c.header('Cache-Control', 'no-store')
+    return c.html(config.renderLogin({ error, csrfToken, basePath }), status)
+  }
+
+  app.get('/login', (c) => renderLoginPage(c))
 
   app.post('/login', async (c) => {
     const csrfValid = await validateCsrf(c, config.sessionSecret)
     if (!csrfValid) {
-      const csrfToken = await setCsrfCookie(c, config.sessionSecret)
-      return c.html(config.renderLogin({
-        error: 'Invalid request. Please try again.',
-        csrfToken,
-        basePath,
-      }))
+      return renderLoginPage(c, 'Invalid request. Please try again.')
     }
 
     const body = await c.req.parseBody()
@@ -66,23 +67,13 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
     const password = readCredentialField(body.password, PASSWORD_MAX_LENGTH)
 
     if (email === null || password === null) {
-      const csrfToken = await setCsrfCookie(c, config.sessionSecret)
-      return c.html(config.renderLogin({
-        error: 'Invalid email or password.',
-        csrfToken,
-        basePath,
-      }))
+      return renderLoginPage(c, 'Invalid email or password.')
     }
 
     // Short-circuit before any DB or bcrypt work; never reveal which key tripped.
     const identifier = getClientIdentifier(c, trustProxyHeader)
     if (rateLimiter.isLimited(identifier, email)) {
-      const csrfToken = await setCsrfCookie(c, config.sessionSecret)
-      return c.html(config.renderLogin({
-        error: 'Too many attempts, try again later.',
-        csrfToken,
-        basePath,
-      }), 429)
+      return renderLoginPage(c, 'Too many attempts, try again later.', 429)
     }
 
     const admin = await config.backend.findAdminByEmail(config.adminUsers, email)
@@ -99,12 +90,7 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
 
     if (!admin || !valid) {
       rateLimiter.recordFailure(identifier, email)
-      const csrfToken = await setCsrfCookie(c, config.sessionSecret)
-      return c.html(config.renderLogin({
-        error: 'Invalid email or password.',
-        csrfToken,
-        basePath,
-      }))
+      return renderLoginPage(c, 'Invalid email or password.')
     }
 
     rateLimiter.recordSuccess(email)
