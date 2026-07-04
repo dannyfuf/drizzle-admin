@@ -122,7 +122,7 @@ export class DrizzleAdmin {
       sessionSecret: this.config.sessionSecret,
       basePath: this.basePath,
       renderLogin: (props) => loginPage(props),
-      rateLimiter: createInMemoryLoginRateLimiter(this.config.loginRateLimit),
+      rateLimiter: this.config.loginRateLimiter ?? createInMemoryLoginRateLimiter(this.config.loginRateLimit),
       trustProxyHeader: this.config.loginRateLimit?.trustProxyHeader ?? false,
     });
     this.app.route("/", authRoutes);

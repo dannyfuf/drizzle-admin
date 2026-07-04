@@ -306,6 +306,7 @@ Call `Model.configure({ connection, schema })` before `DrizzleAdmin.build()` or 
 | `port` | `number` | No | `3001` | Port to run the admin server on |
 | `basePath` | `string` | No | `''` | Base URL path where the admin panel is mounted (e.g. `'/admin'`) |
 | `loginRateLimit` | `LoginRateLimitOptions` | No | see [Security model](#security-model) | Tuning for the built-in login rate limiter (thresholds, windows, `trustProxyHeader`) |
+| `loginRateLimiter` | `LoginRateLimiter` | No | in-memory limiter | Custom limiter implementation (e.g. Redis-backed) replacing the built-in in-memory one — see [Security model](#security-model) |
 
 ### `basePath`
 
@@ -1026,7 +1027,7 @@ Weigh these before exposing the panel beyond a trusted network:
 
 - **No MFA/TOTP.**
 - **No audit logging** of login attempts or admin actions.
-- **No distributed rate limiting** (no Redis-style shared store; the limiter interface is injectable if you need one).
+- **No distributed rate limiting** built in — the in-memory limiter is per-process. Inject a shared-store implementation via the `loginRateLimiter` config option if you need one.
 - **No session revocation store** — see Sessions above.
 - **No password complexity policy** for `seed()`-created admins.
 

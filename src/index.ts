@@ -31,6 +31,8 @@ export {
   defineResource,
 } from '@/resources/define.ts'
 export { hashPassword } from '@/auth/password.ts'
+export { createInMemoryLoginRateLimiter } from '@/auth/rate-limit.ts'
+export type { LoginRateLimiter, LoginRateLimitOptions } from '@/auth/rate-limit.ts'
 
 export type { DrizzleAdminHandler } from '@/DrizzleAdmin.ts'
 export type {

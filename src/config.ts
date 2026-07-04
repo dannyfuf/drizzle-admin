@@ -1,7 +1,7 @@
 import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AnyKnexDatabase, AnyPgDatabase, PersistenceResourceRef } from '@/types.ts'
 import type { KnexTableDefinition } from '@/resources/types.ts'
-import type { LoginRateLimitOptions } from '@/auth/rate-limit.ts'
+import type { LoginRateLimiter, LoginRateLimitOptions } from '@/auth/rate-limit.ts'
 
 export interface BaseAdminConfig {
   /** The SQL dialect to use. Currently only `"postgresql"` is supported. */
@@ -30,6 +30,14 @@ export interface BaseAdminConfig {
    * deployments each process enforces the limits independently.
    */
   loginRateLimit?: LoginRateLimitOptions
+  /**
+   * Custom login rate limiter used instead of the built-in in-memory one —
+   * e.g. backed by Redis so multi-process deployments share one set of
+   * counters. When set, the threshold/window fields of `loginRateLimit` are
+   * ignored (`loginRateLimit.trustProxyHeader` still applies: it controls how
+   * the client identifier is derived, not how it is counted).
+   */
+  loginRateLimiter?: LoginRateLimiter
 }
 
 /** Configuration options for existing Drizzle ORM users. */

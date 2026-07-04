@@ -90,4 +90,28 @@ describe('DrizzleAdmin.build()', () => {
     expect(handler).toHaveProperty('app')
     expect(handler).toHaveProperty('fetch')
   })
+
+  it('uses a custom loginRateLimiter when provided', async () => {
+    const loginRateLimiter = {
+      isLimited: vi.fn(() => false),
+      recordFailure: vi.fn(),
+      recordSuccess: vi.fn(),
+      retryAfterMs: vi.fn(() => 0),
+    }
+    const admin = new DrizzleAdmin(makeConfig({ loginRateLimiter }))
+    const handler = await admin.build()
+
+    const loginPage = await handler.fetch(new Request('http://localhost/login'))
+    const token = (loginPage.headers.get('set-cookie') ?? '').match(/_csrf=([^;]+)/)?.[1]
+    expect(token).toBeTruthy()
+
+    // The stub db makes the backend lookup blow up further down the handler;
+    // all this test asserts is that the injected limiter is consulted.
+    await handler.fetch(new Request('http://localhost/login', {
+      method: 'POST',
+      headers: { Cookie: `_csrf=${token}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ _csrf: token!, email: 'a@test.com', password: 'x' }).toString(),
+    }))
+    expect(loginRateLimiter.isLimited).toHaveBeenCalledWith(null, 'a@test.com')
+  })
 })
