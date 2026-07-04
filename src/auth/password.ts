@@ -34,6 +34,12 @@ const DUMMY_HASH = "$2a$12$OEaomAAOeWzTNFbUlb5nBOrXzARn6YSYo3TbdcnluN7NkGPE0DRqO
  * usable stored hash (unknown email, or a null/empty `passwordHash` row) so
  * that branch costs the same as a real comparison and response timing cannot
  * reveal whether an email exists.
+ *
+ * Timing uniformity assumes stored hashes use cost 12, like `hashPassword`
+ * and `seed()` produce. Hashes imported from another system at a different
+ * cost (commonly 10) make the real-compare branch measurably faster or slower
+ * than this dummy, reopening the enumeration oracle — rehash imported
+ * credentials at cost 12 to keep the guarantee.
  */
 export async function dummyPasswordCompare(password: string): Promise<false> {
   await bcrypt.compare(password, DUMMY_HASH);
