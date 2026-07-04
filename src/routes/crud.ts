@@ -194,16 +194,21 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
   // POST /:id - Update or Delete (method override)
   app.post('/:id', async (c) => {
     const method = c.req.query('_method')
-    if (method === 'DELETE') {
-      return handleDelete(c)
-    }
-
     const id = c.req.param('id')
 
+    // CSRF is validated before dispatch so the method override cannot route
+    // around it: deletes need the double-submit token just like updates.
     const csrfValid = await validateCsrf(c, sessionSecret)
     if (!csrfValid) {
       setFlash(c, 'error', 'Invalid request. Please try again.')
-      return c.redirect(adminUrl(basePath, `/${resource.routePath}/${id}/edit`))
+      const target = method === 'DELETE'
+        ? `/${resource.routePath}/${id}`
+        : `/${resource.routePath}/${id}/edit`
+      return c.redirect(adminUrl(basePath, target))
+    }
+
+    if (method === 'DELETE') {
+      return handleDelete(c)
     }
 
     const body = await c.req.parseBody()

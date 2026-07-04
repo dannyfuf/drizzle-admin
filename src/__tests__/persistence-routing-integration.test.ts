@@ -291,9 +291,21 @@ describe('Persistence routing integration', () => {
     expect(collectionAction.status).toBe(302)
     expect(routeMocks.collectionAction.mock.calls[0]?.[1].repository).toBe(routeMocks.postRepo)
 
-    const deleted = await app.request('/posts/1?_method=DELETE', {
+    // Delete needs the double-submit token like every other mutation; the
+    // method override must not route around the CSRF check.
+    const deleteWithoutCsrf = await app.request('/posts/1?_method=DELETE', {
       method: 'POST',
       headers: { Cookie: authCookie },
+      redirect: 'manual',
+    })
+    expect(deleteWithoutCsrf.status).toBe(302)
+    expect(deleteWithoutCsrf.headers.get('Location')).toBe('/posts/1')
+    expect(routeMocks.postRepo.calls).not.toContainEqual({ method: 'delete', args: [] })
+
+    const deleted = await app.request('/posts/1?_method=DELETE', {
+      method: 'POST',
+      headers: formHeaders(`${authCookie}; ${csrfCookie}`),
+      body: new URLSearchParams({ _csrf: csrfToken }),
       redirect: 'manual',
     })
     expect(deleted.status).toBe(302)
