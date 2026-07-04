@@ -136,6 +136,26 @@ describe('login-surface hardening checklist', () => {
     expect(normalize(await unknownRes.text())).toBe(normalize(await knownRes.text()))
   })
 
+  it('clears the session on POST /logout even with a stale CSRF token', async () => {
+    // Every page render rotates the _csrf cookie, so a second tab's embedded
+    // token is routinely stale; "Sign out" must still end the session.
+    const app = makeApp()
+    const res = await app.request('/logout', {
+      method: 'POST',
+      headers: {
+        Cookie: 'admin_session=whatever',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ _csrf: 'stale-token-from-an-old-render' }).toString(),
+      redirect: 'manual',
+    })
+    expect(res.status).toBe(302)
+    expect(res.headers.get('Location')).toBe('/login')
+    const setCookieHeader = res.headers.get('set-cookie') ?? ''
+    expect(setCookieHeader).toContain('admin_session=')
+    expect(setCookieHeader).toContain('Max-Age=0')
+  })
+
   it('ignores GET /logout as a forced-logout vector', async () => {
     const app = makeApp()
     const res = await app.request('/logout', { redirect: 'manual' })

@@ -60,6 +60,18 @@ describe('setCsrfCookie', () => {
     // Without explicit path, browsers default to the request URI directory
     expect(setCookieHeader).toMatch(/Path=\/(?:;|$)/)
   })
+
+  it('lives as long as the session cookie so idle forms stay submittable', async () => {
+    const app = new Hono()
+    app.get('/x', async (c) => {
+      await setCsrfCookie(c, 'test-secret')
+      return c.text('ok')
+    })
+
+    const res = await app.request('/x')
+    // 24h — must match the session cookie's maxAge in middleware.ts.
+    expect(res.headers.get('set-cookie')).toContain('Max-Age=86400')
+  })
 })
 
 describe('validateCsrf', () => {

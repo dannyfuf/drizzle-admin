@@ -206,7 +206,9 @@ describe('Routing integration with basePath', () => {
       expect(res.headers.get('set-cookie')).toBeNull()
     })
 
-    it('POST /admin/logout without CSRF redirects home without clearing the session', async () => {
+    it('POST /admin/logout without a CSRF token still clears the session', async () => {
+      // Logout must never silently no-op: a stale or missing token (older
+      // tab, expired cookie) has to end the session anyway.
       const cookie = await makeAuthCookie()
       const res = await parentApp.request('/admin/logout', {
         method: 'POST',
@@ -214,20 +216,24 @@ describe('Routing integration with basePath', () => {
         redirect: 'manual',
       })
       expect(res.status).toBe(302)
-      expect(res.headers.get('Location')).toBe('/admin/')
-      expect(res.headers.get('set-cookie')).toBeNull()
+      expect(res.headers.get('Location')).toBe('/admin/login')
+      const setCookieHeader = res.headers.get('set-cookie') ?? ''
+      expect(setCookieHeader).toContain('admin_session=')
+      expect(setCookieHeader).toContain('Max-Age=0')
     })
 
-    it('POST /admin/logout with CSRF clears the session and redirects to login', async () => {
+    it('POST /admin/logout with a stale CSRF token still clears the session', async () => {
       const sessionCookie = await makeAuthCookie()
       const loginRes = await parentApp.request('/admin/login')
       const csrfToken = (loginRes.headers.get('set-cookie') ?? '').match(/_csrf=([^;]+)/)?.[1]
       expect(csrfToken).toBeTruthy()
 
+      // Form token from an older render, no matching cookie: previously a
+      // silent no-op that left the session alive.
       const res = await parentApp.request('/admin/logout', {
         method: 'POST',
         headers: {
-          Cookie: `${sessionCookie}; _csrf=${csrfToken}`,
+          Cookie: sessionCookie,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({ _csrf: csrfToken! }).toString(),

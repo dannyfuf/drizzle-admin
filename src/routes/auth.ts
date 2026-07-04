@@ -112,11 +112,13 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
     return c.redirect(adminUrl(basePath, '/'))
   })
 
-  app.post('/logout', async (c) => {
-    const csrfValid = await validateCsrf(c, config.sessionSecret)
-    if (!csrfValid) {
-      return c.redirect(adminUrl(basePath, '/'))
-    }
+  // Logout is idempotent and a forced logout is only a nuisance, so POST
+  // clears the session unconditionally instead of requiring a fresh CSRF
+  // token. Requiring one silently left sessions alive on shared machines:
+  // every page render rotates the `_csrf` cookie, so the token embedded in an
+  // older tab (or a page revisited via Back) no longer matches and a "Sign
+  // out" click would no-op without any error.
+  app.post('/logout', (c) => {
     clearAuthCookie(c, basePath)
     return c.redirect(adminUrl(basePath, '/login'))
   })

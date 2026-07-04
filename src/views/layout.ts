@@ -14,7 +14,11 @@ export interface LayoutProps<TableRef = unknown, ActionDatabase = never> {
   resources: ResourceDefinition<TableRef, ActionDatabase>[]
   currentPath: string
   basePath: string
-  /** Token embedded in the sign-out form; logout is POST-only and CSRF-checked. */
+  /**
+   * Token embedded in the sign-out form. Logout no longer requires it (a
+   * rotated cookie must not turn "Sign out" into a silent no-op), but it is
+   * kept so the form stays uniform with every other mutating form.
+   */
   csrfToken: string
   flash?: FlashMessage | null
   modals?: string

@@ -1014,8 +1014,8 @@ DrizzleAdmin exposes real database data behind a single email/password login. Th
 
 ### CSRF
 
-- All mutating routes (login, logout, create/update/delete, custom actions) use signed double-submit tokens: the token must appear in both a cookie and the form body, carry a valid signature, and be typed `csrf` (a session token can never pass as a CSRF token, nor vice versa). Each issued token includes a random `jti`, so no two tokens are interchangeable.
-- Logout is POST-only and CSRF-checked; a cross-site GET cannot terminate a session.
+- All mutating routes except logout (login, create/update/delete, custom actions) use signed double-submit tokens: the token must appear in both a cookie and the form body, carry a valid signature, and be typed `csrf` (a session token can never pass as a CSRF token, nor vice versa). Each issued token includes a random `jti`, so no two tokens are interchangeable.
+- Logout is POST-only but deliberately **not** CSRF-checked: logout is idempotent, a forced logout is only a nuisance, and requiring a fresh token silently left sessions alive on shared machines whenever the token embedded in an older tab no longer matched the rotated cookie. A cross-site GET still cannot terminate a session.
 
 ### Passwords
 

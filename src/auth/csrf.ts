@@ -25,7 +25,10 @@ export async function setCsrfCookie(
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'Strict',
-    maxAge: 60 * 60,
+    // Matches the session cookie lifetime (middleware.ts). A shorter-lived
+    // CSRF cookie made forms silently unsubmittable after an idle hour while
+    // the session was still valid.
+    maxAge: 60 * 60 * 24,
     path: '/',
   })
   return token
