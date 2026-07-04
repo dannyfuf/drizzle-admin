@@ -1007,10 +1007,11 @@ DrizzleAdmin exposes real database data behind a single email/password login. Th
 
 ### Login throttling
 
-- Failed logins are rate limited with two independent fixed windows: **5 failures per client identifier per minute** and **10 failures per email per 15 minutes** (HTTP 429 once tripped). Successful login clears the email counter. Thresholds and windows are configurable via `loginRateLimit`.
-- The client identifier is the socket address; `x-forwarded-for` is honored only if you opt in with `loginRateLimit.trustProxyHeader` (do this only behind a proxy you control). When no identifier is available, the per-email limit still applies.
-- The built-in limiter is **in-memory and per-process**: counters reset on restart and are not shared between processes, so in multi-process deployments each process enforces the limits independently.
-- Login failures are timing-uniform: unknown emails, broken stored hashes, and wrong passwords all cost one bcrypt compare and return the same generic response, so account existence cannot be probed.
+- Failed logins are rate limited with two independent fixed windows: **5 failures per client identifier per minute** and **10 failures per email per 15 minutes**. Once tripped, further *failed* attempts get HTTP 429 with a `Retry-After` header. Successful login clears the email counter. Thresholds and windows are configurable via `loginRateLimit`.
+- Being over-limit never blocks a **correct** password: credentials are still verified and a valid login gets in and clears the counter. This is deliberate — a hard block would let anyone who knows an admin email (or shares the admin's client identifier, e.g. behind a proxy) lock that admin out with a stream of bad guesses. The trade-off is that over-limit guesses still cost the server one bcrypt compare each; the limiter throttles nothing but the error response, so treat it as brute-force friction, not a hard cap.
+- The client identifier is the socket address (Node) or connection address (Deno); `x-forwarded-for` is honored only if you opt in with `loginRateLimit.trustProxyHeader`, and then only its **last** entry — the one appended by your own proxy — since the leftmost entries are client-supplied even behind a trusted append-style proxy. When no identifier is available, the per-email limit still applies.
+- The built-in limiter is **in-memory and per-process**: counters reset on restart and are not shared between processes, so in multi-process deployments each process enforces the limits independently. Pass a custom `LoginRateLimiter` via `loginRateLimiter` (exported, along with `createInMemoryLoginRateLimiter`) to back the counters with shared storage such as Redis.
+- Login failures are timing-uniform: unknown emails, broken stored hashes, and wrong passwords all cost one bcrypt compare and return the same generic response, so account existence cannot be probed. This assumes stored hashes use bcrypt cost 12 (what `hashPassword`/`seed()` produce); hashes imported from another system at a different cost reopen a timing difference between known and unknown emails — rehash them at cost 12 to keep the guarantee.
 
 ### CSRF
 

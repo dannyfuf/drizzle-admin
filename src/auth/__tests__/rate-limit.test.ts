@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createInMemoryLoginRateLimiter } from '@/auth/rate-limit.ts'
+import type { Context } from 'hono'
+import {
+  createInMemoryLoginRateLimiter,
+  getClientIdentifier,
+  MAX_IDENTIFIER_LENGTH,
+} from '@/auth/rate-limit.ts'
 
 describe('createInMemoryLoginRateLimiter', () => {
   beforeEach(() => {
@@ -85,9 +90,71 @@ describe('createInMemoryLoginRateLimiter', () => {
       limiter.recordFailure(null, `bot-${i}@test.com`)
     }
     vi.advanceTimersByTime(60_001)
-    // A single write after expiry must clear all stale entries; verify by
-    // confirming stale keys no longer count.
-    limiter.recordFailure(null, 'fresh@test.com')
+    // Writes after expiry must clear stale entries (the sweep is amortized,
+    // so it may take up to `size` writes to run); verify stale keys never
+    // count regardless.
+    for (let i = 0; i < 101; i++) {
+      limiter.recordFailure(null, 'fresh@test.com')
+    }
     expect(limiter.isLimited(null, 'bot-0@test.com')).toBe(false)
+  })
+
+  it('reports how long until a tripped budget resets', () => {
+    const limiter = createInMemoryLoginRateLimiter({ maxAttemptsPerEmail: 2, emailWindowMs: 60_000 })
+    limiter.recordFailure(null, 'victim@test.com')
+    expect(limiter.retryAfterMs!(null, 'victim@test.com')).toBe(0)
+
+    limiter.recordFailure(null, 'victim@test.com')
+    vi.advanceTimersByTime(10_000)
+    expect(limiter.retryAfterMs!(null, 'victim@test.com')).toBe(50_000)
+  })
+
+  it('reports the longer wait when both budgets are tripped', () => {
+    const limiter = createInMemoryLoginRateLimiter({
+      maxAttemptsPerIdentifier: 1,
+      identifierWindowMs: 60_000,
+      maxAttemptsPerEmail: 1,
+      emailWindowMs: 900_000,
+    })
+    limiter.recordFailure('1.1.1.1', 'victim@test.com')
+    expect(limiter.retryAfterMs!('1.1.1.1', 'victim@test.com')).toBe(900_000)
+  })
+})
+
+describe('getClientIdentifier', () => {
+  function makeContext(options: { xff?: string; env?: unknown } = {}): Context {
+    return {
+      req: { header: (name: string) => (name === 'x-forwarded-for' ? options.xff : undefined) },
+      env: options.env,
+    } as unknown as Context
+  }
+
+  it('uses the last x-forwarded-for entry when the proxy is trusted', () => {
+    // Append-style proxies (nginx $proxy_add_x_forwarded_for, ALB) append the
+    // real client last; leftmost entries are client-supplied and spoofable.
+    const c = makeContext({ xff: 'spoofed-by-client, 203.0.113.9' })
+    expect(getClientIdentifier(c, true)).toBe('203.0.113.9')
+  })
+
+  it('ignores x-forwarded-for when the proxy is not trusted', () => {
+    const c = makeContext({
+      xff: 'spoofed-by-client',
+      env: { incoming: { socket: { remoteAddress: '10.0.0.5' } } },
+    })
+    expect(getClientIdentifier(c, false)).toBe('10.0.0.5')
+  })
+
+  it('caps attacker-chosen identifiers at MAX_IDENTIFIER_LENGTH', () => {
+    const c = makeContext({ xff: 'x'.repeat(10_000) })
+    expect(getClientIdentifier(c, true)).toHaveLength(MAX_IDENTIFIER_LENGTH)
+  })
+
+  it('reads the Deno connection-info shape', () => {
+    const c = makeContext({ env: { remoteAddr: { hostname: '198.51.100.7' } } })
+    expect(getClientIdentifier(c, false)).toBe('198.51.100.7')
+  })
+
+  it('returns null when the runtime exposes no address', () => {
+    expect(getClientIdentifier(makeContext(), false)).toBeNull()
   })
 })

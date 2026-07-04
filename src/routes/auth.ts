@@ -77,11 +77,13 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       return renderLoginPage(c, 'Invalid email or password.')
     }
 
-    // Short-circuit before any DB or bcrypt work; never reveal which key tripped.
+    // Being over-limit rejects *failed* attempts only. Credentials are still
+    // verified so a correct password always gets in — otherwise unauthenticated
+    // traffic could hold the counters over their limit and lock legitimate
+    // admins out (a pre-auth denial of service). The cost is that over-limit
+    // guesses still burn a bcrypt compare.
     const identifier = getClientIdentifier(c, trustProxyHeader)
-    if (rateLimiter.isLimited(identifier, email)) {
-      return renderLoginPage(c, 'Too many attempts, try again later.', 429)
-    }
+    const limited = rateLimiter.isLimited(identifier, email)
 
     const admin = await config.backend.findAdminByEmail(config.adminUsers, email)
 
@@ -97,6 +99,14 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
 
     if (!admin || !valid) {
       rateLimiter.recordFailure(identifier, email)
+      if (limited) {
+        const retryAfterMs = rateLimiter.retryAfterMs?.(identifier, email) ?? 0
+        if (retryAfterMs > 0) {
+          c.header('Retry-After', String(Math.ceil(retryAfterMs / 1000)))
+        }
+        // Never reveal which key tripped.
+        return renderLoginPage(c, 'Too many attempts, try again later.', 429)
+      }
       return renderLoginPage(c, 'Invalid email or password.')
     }
 

@@ -210,18 +210,46 @@ describe('POST /login body validation', () => {
     compareSpy.mockRestore()
   })
 
-  it('returns 429 without touching the backend or bcrypt when rate limited', async () => {
-    const compareSpy = vi.spyOn(bcrypt, 'compare')
-    const rateLimiter = makeStubLimiter({ isLimited: vi.fn(() => true) })
+  it('answers a failed attempt with 429 and Retry-After when rate limited', async () => {
+    const rateLimiter = makeStubLimiter({
+      isLimited: vi.fn(() => true),
+      retryAfterMs: vi.fn(() => 90_000),
+    })
     const { app, findAdminByEmail } = makeApp({ rateLimiter })
 
     const res = await postLogin(app, { email: 'victim@test.com', password: 'guess' })
 
     expect(res.status).toBe(429)
+    expect(res.headers.get('retry-after')).toBe('90')
     expect(await res.text()).toContain('Too many attempts, try again later.')
-    expect(findAdminByEmail).not.toHaveBeenCalled()
-    expect(compareSpy).not.toHaveBeenCalled()
-    compareSpy.mockRestore()
+    // Credentials are still verified while limited — a hard pre-auth block
+    // would let unauthenticated traffic lock legitimate admins out.
+    expect(findAdminByEmail).toHaveBeenCalled()
+    expect(rateLimiter.recordFailure).toHaveBeenCalled()
+  })
+
+  it('lets a correct password through even when the counters are tripped', async () => {
+    const rateLimiter = makeStubLimiter({ isLimited: vi.fn(() => true) })
+    const { app } = makeApp({
+      admin: { id: 1, email: 'admin@test.com', passwordHash },
+      rateLimiter,
+    })
+
+    const { cookie, token } = await getCsrf(app)
+    const res = await app.request('/login', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        _csrf: token,
+        email: 'admin@test.com',
+        password: 'correct-password',
+      }).toString(),
+      redirect: 'manual',
+    })
+
+    expect(res.status).toBe(302)
+    expect(res.headers.get('set-cookie')).toContain('admin_session=')
+    expect(rateLimiter.recordSuccess).toHaveBeenCalledWith('admin@test.com')
   })
 
   it('records a failure for unknown emails and wrong passwords', async () => {
@@ -251,7 +279,9 @@ describe('POST /login body validation', () => {
     expect(rateLimiter.recordFailure).not.toHaveBeenCalled()
   })
 
-  it('uses the first x-forwarded-for entry as identifier only when the proxy is trusted', async () => {
+  it('uses the last x-forwarded-for entry as identifier only when the proxy is trusted', async () => {
+    // The last entry is the one appended by your own proxy; leftmost entries
+    // are client-supplied even behind a trusted append-style proxy.
     const trustedLimiter = makeStubLimiter()
     const { app: trustedApp } = makeApp({ rateLimiter: trustedLimiter, trustProxyHeader: true })
     await postLogin(
@@ -259,7 +289,7 @@ describe('POST /login body validation', () => {
       { email: 'ghost@test.com', password: 'guess' },
       { 'x-forwarded-for': '203.0.113.9, 10.0.0.1' },
     )
-    expect(trustedLimiter.recordFailure).toHaveBeenCalledWith('203.0.113.9', 'ghost@test.com')
+    expect(trustedLimiter.recordFailure).toHaveBeenCalledWith('10.0.0.1', 'ghost@test.com')
 
     const untrustedLimiter = makeStubLimiter()
     const { app: untrustedApp } = makeApp({ rateLimiter: untrustedLimiter })
@@ -272,15 +302,30 @@ describe('POST /login body validation', () => {
   })
 
   it('rate limits end-to-end with the default limiter after repeated failures', async () => {
-    const { app, findAdminByEmail } = makeApp() // real in-memory limiter via default
+    const { app } = makeApp() // real in-memory limiter via default
     for (let i = 0; i < 10; i++) {
       const res = await postLogin(app, { email: 'victim@test.com', password: `guess-${i}` })
       expect(res.status).toBe(200)
     }
-    findAdminByEmail.mockClear()
 
     const res = await postLogin(app, { email: 'victim@test.com', password: 'guess-again' })
     expect(res.status).toBe(429)
+    expect(res.headers.get('retry-after')).toMatch(/^\d+$/)
+  })
+
+  it('treats an unparseable body as a request failure instead of a 500', async () => {
+    const { app, findAdminByEmail } = makeApp()
+    const { cookie } = await getCsrf(app)
+
+    // multipart/form-data with no boundary makes parseBody reject.
+    const res = await app.request('/login', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'multipart/form-data' },
+      body: 'not-a-multipart-body',
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('Invalid request. Please try again.')
     expect(findAdminByEmail).not.toHaveBeenCalled()
   })
 

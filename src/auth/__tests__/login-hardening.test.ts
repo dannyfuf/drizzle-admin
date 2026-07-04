@@ -136,6 +136,32 @@ describe('login-surface hardening checklist', () => {
     expect(normalize(await unknownRes.text())).toBe(normalize(await knownRes.text()))
   })
 
+  it('does not let sustained bad guesses lock the real admin out', async () => {
+    const passwordHash = await bcrypt.hash('real-password', 4)
+    const app = makeApp({ admin: { id: 1, email: 'admin@test.com', passwordHash } })
+
+    // An attacker trips the per-email failure budget…
+    for (let i = 0; i < 11; i++) {
+      const { cookie, token } = await getCsrf(app)
+      await app.request('/login', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ _csrf: token, email: 'admin@test.com', password: `guess-${i}` }).toString(),
+      })
+    }
+
+    // …but the admin still gets in with the correct password.
+    const { cookie, token } = await getCsrf(app)
+    const res = await app.request('/login', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ _csrf: token, email: 'admin@test.com', password: 'real-password' }).toString(),
+      redirect: 'manual',
+    })
+    expect(res.status).toBe(302)
+    expect(res.headers.get('set-cookie')).toContain('admin_session=')
+  })
+
   it('clears the session on POST /logout even with a stale CSRF token', async () => {
     // Every page render rotates the _csrf cookie, so a second tab's embedded
     // token is routinely stale; "Sign out" must still end the session.
