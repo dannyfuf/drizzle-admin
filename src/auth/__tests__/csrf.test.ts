@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Hono } from 'hono'
-import { csrfInput, generateCsrfToken, setCsrfCookie } from '@/auth/csrf.ts'
+import { csrfInput, generateCsrfToken, setCsrfCookie, validateCsrf } from '@/auth/csrf.ts'
 import { verifyToken } from '@/auth/jwt.ts'
 
 describe('csrfInput', () => {
@@ -59,5 +59,22 @@ describe('setCsrfCookie', () => {
     // Must contain Path=/ (not Path=/deep/nested or absent)
     // Without explicit path, browsers default to the request URI directory
     expect(setCookieHeader).toMatch(/Path=\/(?:;|$)/)
+  })
+})
+
+describe('validateCsrf', () => {
+  it('fails closed instead of throwing on an unparseable body', async () => {
+    const app = new Hono()
+    app.post('/x', async (c) => c.text((await validateCsrf(c, 'test-secret')) ? 'valid' : 'invalid'))
+
+    // multipart/form-data with no boundary makes parseBody reject.
+    const res = await app.request('/x', {
+      method: 'POST',
+      headers: { 'Content-Type': 'multipart/form-data' },
+      body: 'garbage',
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('invalid')
   })
 })

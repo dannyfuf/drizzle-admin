@@ -46,8 +46,15 @@ export async function validateCsrf(
 }
 
 async function getFormCsrfToken(c: Context): Promise<string | null> {
-  const body = await c.req.parseBody()
-  return (body[CSRF_FIELD_NAME] as string) ?? null
+  // A malformed body (e.g. multipart/form-data with no boundary) makes
+  // parseBody reject; that is a CSRF failure, not a 500.
+  try {
+    const body = await c.req.parseBody()
+    const value = body[CSRF_FIELD_NAME]
+    return typeof value === 'string' ? value : null
+  } catch {
+    return null
+  }
 }
 
 export function csrfInput(token: string): string {

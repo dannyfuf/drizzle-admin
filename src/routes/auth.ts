@@ -59,7 +59,14 @@ export function createAuthRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       return renderLoginPage(c, 'Invalid request. Please try again.')
     }
 
-    const body = await c.req.parseBody()
+    // A body that fails to parse (e.g. multipart with no boundary) is a
+    // validation failure, not a 500 from Hono's error boundary.
+    let body: Record<string, string | File>
+    try {
+      body = await c.req.parseBody()
+    } catch {
+      return renderLoginPage(c, 'Invalid email or password.')
+    }
     const email = readCredentialField(
       typeof body.email === 'string' ? body.email.trim() : body.email,
       EMAIL_MAX_LENGTH,
