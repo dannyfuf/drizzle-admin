@@ -1,10 +1,11 @@
-import { and, eq, getTableColumns, getTableName, ilike, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, getTableColumns, getTableName, ilike, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import type { PgTable } from 'drizzle-orm/pg-core'
 import type { AdminBackend, BackendRecord, ListRecordsOptions, ResourceResolveInput } from '@/backends/types.ts'
 import { validateAdminUsersColumns } from '@/auth/contract.ts'
 import { postgresqlAdapter } from '@/dialects/postgresql.ts'
 import type { ParsedFilter } from '@/resources/filters.ts'
+import type { SortState } from '@/resources/sort.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 import type { AnyDrizzleColumn, AnyPgDatabase } from '@/types.ts'
 import { tableNameToDisplayName, tableNameToRoutePath } from '@/utils/table.ts'
@@ -48,10 +49,15 @@ export class DrizzleBackend implements AdminBackend<AnyPgDatabase, PgTable> {
   }
 
   async list(resource: ResourceDefinition<PgTable, AnyPgDatabase>, options: ListRecordsOptions): Promise<BackendRecord[]> {
+    const orderBy = options.sort
+      ? [this.buildOrderBy(resource, options.sort)]
+      : []
+
     return await this.actionDatabase
       .select()
       .from(resource.table)
       .where(this.buildWhere(resource, options.filters))
+      .orderBy(...orderBy)
       .limit(options.limit)
       .offset(options.offset) as BackendRecord[]
   }
@@ -109,6 +115,11 @@ export class DrizzleBackend implements AdminBackend<AnyPgDatabase, PgTable> {
 
   async insertAdminUser(table: PgTable, values: BackendRecord): Promise<void> {
     await this.actionDatabase.insert(table).values(values)
+  }
+
+  private buildOrderBy(resource: ResourceDefinition<PgTable, AnyPgDatabase>, sort: SortState): SQL {
+    const column = this.getTableColumn(resource, sort.column)
+    return sort.direction === 'desc' ? desc(column) : asc(column)
   }
 
   private buildWhere(resource: ResourceDefinition<PgTable, AnyPgDatabase>, filters: ParsedFilter[]): SQL | undefined {

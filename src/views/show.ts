@@ -6,6 +6,7 @@ import { linkButton } from '@/views/components/button.ts'
 import { renderMemberActions } from '@/views/components/actions.ts'
 import { confirmModal, modalTrigger } from '@/views/components/modal.ts'
 import { adminUrl } from '@/utils/url.ts'
+import { formatTimestamp } from '@/utils/date.ts'
 
 export interface ShowViewProps<TableRef = unknown, ActionDatabase = never> {
   resource: ResourceDefinition<TableRef, ActionDatabase>
@@ -101,7 +102,7 @@ export function formatShowValue(value: unknown, column: ColumnMeta): string {
   }
 
   if (column.dataType === 'timestamp' && value instanceof Date) {
-    return escapeHtml(value.toLocaleString())
+    return escapeHtml(formatTimestamp(value))
   }
 
   if (column.dataType === 'boolean') {

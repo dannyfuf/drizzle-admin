@@ -84,6 +84,27 @@ describe('KnexBackend', () => {
     expect(rows).toEqual([{ id: 1, title: 'Hello' }])
     expect(calls).toContainEqual({ method: 'limit', args: [10] })
     expect(calls).toContainEqual({ method: 'offset', args: [20] })
+    expect(calls.some((call) => call.method === 'orderBy')).toBe(false)
+  })
+
+  it('sorts by SQL column name when a sort option is given', async () => {
+    const { backend, calls } = makeBackend({ selectRows: [] })
+    const resource = backend.resolveResource({
+      table: makeTable([
+        makeColumn(),
+        makeColumn({ name: 'title', sqlName: 'post_title', dataType: 'text', isPrimaryKey: false, hasDefault: false }),
+      ]),
+      options: {},
+    })
+
+    await backend.list(resource, {
+      filters: [],
+      limit: 10,
+      offset: 0,
+      sort: { column: 'title', direction: 'desc' },
+    })
+
+    expect(calls).toContainEqual({ method: 'orderBy', args: ['post_title', 'desc'] })
   })
 
   it('uses primary key SQL names for find, update, and delete', async () => {
@@ -229,6 +250,11 @@ class FakeQuery {
 
   offset(value: number) {
     this.calls.push({ method: 'offset', args: [value] })
+    return this
+  }
+
+  orderBy(...args: unknown[]) {
+    this.calls.push({ method: 'orderBy', args })
     return this
   }
 

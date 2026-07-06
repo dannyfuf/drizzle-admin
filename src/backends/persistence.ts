@@ -74,6 +74,10 @@ export class PersistenceBackend implements AdminBackend<PersistenceActionContext
       .limit(options.limit)
       .offset(options.offset)
     this.applyFilters(builder, resource, options.filters)
+    if (options.sort && typeof builder.orderBy === 'function') {
+      const column = this.getColumn(resource, options.sort.column)
+      builder.orderBy(column.sqlName, options.sort.direction)
+    }
     const rows = await builder
 
     return rows.map((row) => this.normalizeRecord(row))

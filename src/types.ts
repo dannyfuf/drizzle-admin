@@ -66,6 +66,8 @@ export interface PersistenceQueryBuilder extends PromiseLike<AnyPersistenceRecor
   first(): Promise<AnyPersistenceRecord | undefined>
   limit(count: number): PersistenceQueryBuilder
   offset(count: number): PersistenceQueryBuilder
+  // Optional: older Persistence versions do not expose orderBy on the builder.
+  orderBy?(column: string, direction: 'asc' | 'desc'): PersistenceQueryBuilder
 }
 
 /** Structural Persistence query chain. */

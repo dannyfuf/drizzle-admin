@@ -1,5 +1,6 @@
 import type { ColumnMeta } from '@/dialects/types.ts'
 import type { DeclaredFilter } from '@/resources/filters.ts'
+import { isSortableColumn, type SortState } from '@/resources/sort.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 import { styles } from '@/views/styles.ts'
 import { escapeHtml } from '@/views/components/flash.ts'
@@ -7,6 +8,7 @@ import { renderPagination, PaginationProps } from '@/views/components/pagination
 import { button, linkButton } from '@/views/components/button.ts'
 import { renderCollectionActions } from '@/views/components/actions.ts'
 import { adminUrl } from '@/utils/url.ts'
+import { formatTimestamp } from '@/utils/date.ts'
 
 export interface IndexViewProps<TableRef = unknown, ActionDatabase = never> {
   resource: ResourceDefinition<TableRef, ActionDatabase>
@@ -14,21 +16,24 @@ export interface IndexViewProps<TableRef = unknown, ActionDatabase = never> {
   records: Record<string, unknown>[]
   filters: DeclaredFilter[]
   activeFilterQuery: Record<string, string>
+  sort?: SortState
   pagination: PaginationProps
   csrfToken: string
   basePath: string
 }
 
 export function indexView<TableRef, ActionDatabase>(props: IndexViewProps<TableRef, ActionDatabase>): string {
-  const { resource, columns, records, filters, activeFilterQuery, pagination, csrfToken, basePath } = props
+  const { resource, columns, records, filters, activeFilterQuery, sort, pagination, csrfToken, basePath } = props
 
   const visibleColumns = getVisibleColumns(columns, resource.options.index)
+  const listUrl = adminUrl(basePath, `/${resource.routePath}`)
 
   const collectionActions = renderCollectionActions({ resource, csrfToken, basePath })
   const filterForm = renderFilterForm({
-    actionUrl: adminUrl(basePath, `/${resource.routePath}`),
+    actionUrl: listUrl,
     filters,
     activeFilterQuery,
+    sort,
   })
 
   const actionBar = `
@@ -51,7 +56,7 @@ export function indexView<TableRef, ActionDatabase>(props: IndexViewProps<TableR
   }
 
   const headerCells = visibleColumns
-    .map(col => `<th class="${styles.tableHeader} px-4 py-3">${formatColumnHeader(col.name)}</th>`)
+    .map(col => renderHeaderCell({ column: col, sort, listUrl, activeFilterQuery }))
     .join('')
 
   const rows = records.map(record => {
@@ -101,14 +106,49 @@ export function getVisibleColumns(columns: ColumnMeta[], config?: { columns?: st
   return result
 }
 
+interface RenderHeaderCellProps {
+  column: ColumnMeta
+  sort: SortState | undefined
+  listUrl: string
+  activeFilterQuery: Record<string, string>
+}
+
+function renderHeaderCell(props: RenderHeaderCellProps): string {
+  const { column, sort, listUrl, activeFilterQuery } = props
+  const label = escapeHtml(formatColumnHeader(column.name))
+
+  if (!isSortableColumn(column)) {
+    return `<th class="${styles.tableHeader} px-4 py-3">${label}</th>`
+  }
+
+  const isActive = sort?.column === column.name
+  const nextDirection = isActive && sort.direction === 'asc' ? 'desc' : 'asc'
+
+  const searchParams = new URLSearchParams(activeFilterQuery)
+  searchParams.set('sort', column.name)
+  searchParams.set('order', nextDirection)
+
+  const arrow = isActive
+    ? (sort.direction === 'asc' ? '▲' : '▼')
+    : '<span class="opacity-0 group-hover:opacity-50">▲</span>'
+  const ariaSort = isActive
+    ? (sort.direction === 'asc' ? 'ascending' : 'descending')
+    : 'none'
+
+  const href = escapeHtml(`${listUrl}?${searchParams.toString()}`)
+
+  return `<th class="${styles.tableHeader} px-4 py-3" aria-sort="${ariaSort}"><a href="${href}" class="group inline-flex items-center gap-1 hover:text-zinc-100">${label}<span class="text-xs" aria-hidden="true">${arrow}</span></a></th>`
+}
+
 interface RenderFilterFormProps {
   actionUrl: string
   filters: DeclaredFilter[]
   activeFilterQuery: Record<string, string>
+  sort?: SortState
 }
 
 function renderFilterForm(props: RenderFilterFormProps): string {
-  const { actionUrl, filters, activeFilterQuery } = props
+  const { actionUrl, filters, activeFilterQuery, sort } = props
 
   if (filters.length === 0) {
     return ''
@@ -124,9 +164,14 @@ function renderFilterForm(props: RenderFilterFormProps): string {
     `
   }).join('')
 
+  const sortFields = sort
+    ? `<input type="hidden" name="sort" value="${escapeHtml(sort.column)}"><input type="hidden" name="order" value="${sort.direction}">`
+    : ''
+
   return `
     <div class="${styles.cardPadded} mt-4">
       <form method="GET" action="${actionUrl}" class="space-y-4">
+        ${sortFields}
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           ${fields}
         </div>
@@ -218,7 +263,7 @@ export function formatCellValue(value: unknown, column: ColumnMeta): string {
   }
 
   if (column.dataType === 'timestamp' && value instanceof Date) {
-    return escapeHtml(value.toLocaleString())
+    return escapeHtml(formatTimestamp(value))
   }
 
   if (column.dataType === 'boolean') {

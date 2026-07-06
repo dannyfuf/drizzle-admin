@@ -58,10 +58,10 @@ describe('formatCellValue', () => {
     expect(result).toContain('—')
   })
 
-  it('formats Date as locale string for timestamp columns', () => {
+  it('formats Date as ISO 8601 UTC for timestamp columns', () => {
     const date = new Date('2024-01-15T10:30:00Z')
     const result = formatCellValue(date, makeColumn({ dataType: 'timestamp' }))
-    expect(result).toContain('2024')
+    expect(result).toContain('2024-01-15T10:30:00Z')
   })
 
   it('returns checkmark for true boolean', () => {
@@ -221,6 +221,76 @@ describe('indexView', () => {
     expect(html).toContain('value="Hello"')
     expect(html).toContain('name="filter_featured"')
     expect(html).toContain('option value="false" selected')
+  })
+
+  it('renders sortable header links that toggle to ascending by default', () => {
+    const html = indexView({
+      ...baseProps,
+      records: [{ id: 1, title: 'Test' }],
+    })
+
+    expect(html).toContain('href="/cards?sort=id&amp;order=asc"')
+    expect(html).toContain('href="/cards?sort=title&amp;order=asc"')
+  })
+
+  it('marks the active sort column with a descending toggle and arrow', () => {
+    const html = indexView({
+      ...baseProps,
+      sort: { column: 'title', direction: 'asc' },
+      records: [{ id: 1, title: 'Test' }],
+    })
+
+    expect(html).toContain('href="/cards?sort=title&amp;order=desc"')
+    expect(html).toContain('aria-sort="ascending"')
+    expect(html).toContain('▲')
+  })
+
+  it('shows the descending arrow and toggles back to ascending', () => {
+    const html = indexView({
+      ...baseProps,
+      sort: { column: 'title', direction: 'desc' },
+      records: [{ id: 1, title: 'Test' }],
+    })
+
+    expect(html).toContain('href="/cards?sort=title&amp;order=asc"')
+    expect(html).toContain('aria-sort="descending"')
+    expect(html).toContain('▼')
+  })
+
+  it('preserves active filters in sort links', () => {
+    const html = indexView({
+      ...baseProps,
+      filters: [makeFilter()],
+      activeFilterQuery: { filter_title: 'Hello' },
+      records: [{ id: 1, title: 'Test' }],
+    })
+
+    expect(html).toContain('href="/cards?filter_title=Hello&amp;sort=title&amp;order=asc"')
+  })
+
+  it('does not render sort links for json columns', () => {
+    const html = indexView({
+      ...baseProps,
+      columns: [
+        makeColumn({ name: 'id', isPrimaryKey: true }),
+        makeColumn({ name: 'metadata', dataType: 'json' }),
+      ],
+      records: [{ id: 1, metadata: { a: 1 } }],
+    })
+
+    expect(html).not.toContain('sort=metadata')
+  })
+
+  it('preserves the active sort as hidden fields in the filter form', () => {
+    const html = indexView({
+      ...baseProps,
+      filters: [makeFilter()],
+      sort: { column: 'title', direction: 'desc' },
+      records: [{ id: 1, title: 'Test' }],
+    })
+
+    expect(html).toContain('<input type="hidden" name="sort" value="title">')
+    expect(html).toContain('<input type="hidden" name="order" value="desc">')
   })
 
   it('renders a clear link back to the bare index url', () => {

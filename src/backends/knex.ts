@@ -49,6 +49,10 @@ export class KnexBackend implements AdminBackend<Knex, KnexTableDefinition> {
       .limit(options.limit)
       .offset(options.offset)
     this.applyFilters(query, resource, options.filters)
+    if (options.sort) {
+      const column = this.getColumn(resource.table, options.sort.column)
+      query.orderBy(column.sqlName, options.sort.direction)
+    }
     const rows = await query
 
     return rows.map((row) => this.normalizeRecord(resource.table, row))

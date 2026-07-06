@@ -10,10 +10,11 @@ import {
   type ParsedFilter,
 } from '@/resources/filters.ts'
 import type { ColumnMeta } from '@/dialects/types.ts'
+import { buildSortQuery, isSortableColumn, parseSortState } from '@/resources/sort.ts'
 import { setFlash, getFlash } from '@/utils/flash.ts'
 import { setCsrfCookie, validateCsrf } from '@/auth/csrf.ts'
 import { layout } from '@/views/layout.ts'
-import { indexView } from '@/views/index.ts'
+import { getVisibleColumns, indexView } from '@/views/index.ts'
 import { showView } from '@/views/show.ts'
 import { formView } from '@/views/form.ts'
 import { createActionRoutes } from '@/routes/actions.ts'
@@ -34,6 +35,7 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
   const columns = resource.columns
   const declaredFilters = getDeclaredFilters(resource, columns)
   const perPage = resource.options.index?.perPage ?? 20
+  const sortableColumns = getVisibleColumns(columns, resource.options.index).filter(isSortableColumn)
 
   // GET / - Index
   app.get('/', async (c) => {
@@ -43,6 +45,11 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       declaredFilters,
       getQueryValue: (queryKey) => c.req.query(queryKey) ?? undefined,
     })
+    const sort = parseSortState({
+      rawColumn: c.req.query('sort'),
+      rawDirection: c.req.query('order'),
+      sortableColumns,
+    })
 
     const count = await backend.count(resource, filterState.activeFilters)
     const totalPages = Math.ceil(count / perPage)
@@ -51,6 +58,7 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       filters: filterState.activeFilters,
       limit: perPage,
       offset,
+      sort,
     })
 
     const flash = getFlash(c)
@@ -64,7 +72,13 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       records,
       filters: declaredFilters,
       activeFilterQuery: filterState.activeFilterQuery,
-      pagination: { currentPage: page, totalPages, baseUrl, query: filterState.activeFilterQuery },
+      sort,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        baseUrl,
+        query: { ...filterState.activeFilterQuery, ...buildSortQuery(sort) },
+      },
       csrfToken,
       basePath,
     })

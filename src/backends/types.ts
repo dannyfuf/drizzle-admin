@@ -1,5 +1,6 @@
 import type { ColumnMeta } from '@/dialects/types.ts'
 import type { ParsedFilter } from '@/resources/filters.ts'
+import type { SortState } from '@/resources/sort.ts'
 import type { ResourceDefinition, ResourceOptions } from '@/resources/types.ts'
 
 export type BackendRecord = Record<string, unknown>
@@ -13,6 +14,7 @@ export interface ListRecordsOptions {
   filters: ParsedFilter[]
   limit: number
   offset: number
+  sort?: SortState
 }
 
 export interface AdminBackend<ActionDatabase = unknown, TableRef = unknown> {

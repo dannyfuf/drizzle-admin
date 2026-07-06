@@ -47,6 +47,8 @@ vi.mock('drizzle-orm', () => ({
   eq: () => {},
   and: () => ({}),
   ilike: () => ({}),
+  asc: () => ({}),
+  desc: () => ({}),
   sql: (strings: TemplateStringsArray) => strings.join(''),
 }))
 
@@ -99,6 +101,7 @@ function makeMockDb() {
     chain.select = () => chain
     chain.from = () => chain
     chain.where = () => chain
+    chain.orderBy = () => chain
     chain.limit = () => chain
     chain.offset = () => chain
     chain.insert = () => chain
@@ -278,6 +281,31 @@ describe('Routing integration with basePath', () => {
       const html = await res.text()
       expect(html).toContain('name="filter_title"')
       expect(html).toContain('value="Test"')
+    })
+
+    it('GET /admin/posts renders sortable headers and the active sort arrow', async () => {
+      const cookie = await makeAuthCookie()
+      const res = await parentApp.request('/admin/posts?sort=title&order=desc', {
+        headers: { Cookie: cookie },
+      })
+
+      expect(res.status).toBe(200)
+      const html = await res.text()
+      expect(html).toContain('aria-sort="descending"')
+      expect(html).toContain('▼')
+      expect(html).toContain('sort=title&amp;order=asc')
+    })
+
+    it('GET /admin/posts ignores unknown sort columns', async () => {
+      const cookie = await makeAuthCookie()
+      const res = await parentApp.request('/admin/posts?sort=nope&order=desc', {
+        headers: { Cookie: cookie },
+      })
+
+      expect(res.status).toBe(200)
+      const html = await res.text()
+      expect(html).not.toContain('aria-sort="descending"')
+      expect(html).not.toContain('aria-sort="ascending"')
     })
 
     it('GET /admin/posts/new returns 200 with create form', async () => {

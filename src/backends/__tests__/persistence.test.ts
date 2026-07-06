@@ -85,6 +85,45 @@ describe('PersistenceBackend', () => {
     expect(repository.calls).toContainEqual({ method: 'offset', args: [20] })
   })
 
+  it('sorts through the builder when a sort option is given', async () => {
+    const title = makeColumn({ name: 'title', dataType: 'text', isPrimaryKey: false, hasDefault: false })
+    const repository = new FakeRepository(makeMetadata([makeColumn(), title]), { rows: [] })
+    const backend = new PersistenceBackend()
+    const resource = backend.resolveResource({ table: () => repository, options: {} })
+
+    await backend.list(resource, {
+      filters: [],
+      limit: 10,
+      offset: 0,
+      sort: { column: 'title', direction: 'asc' },
+    })
+
+    expect(repository.calls).toContainEqual({ method: 'orderBy', args: ['title', 'asc'] })
+  })
+
+  it('ignores sort when the builder does not expose orderBy', async () => {
+    const title = makeColumn({ name: 'title', dataType: 'text', isPrimaryKey: false, hasDefault: false })
+    const repository = new FakeRepository(makeMetadata([makeColumn(), title]), { rows: [{ id: 1, title: 'Hello' }] })
+    const originalCreateBuilder = repository.createBuilder.bind(repository)
+    repository.createBuilder = () => {
+      const builder = originalCreateBuilder()
+      ;(builder as { orderBy?: unknown }).orderBy = undefined
+      return builder
+    }
+    const backend = new PersistenceBackend()
+    const resource = backend.resolveResource({ table: () => repository, options: {} })
+
+    const rows = await backend.list(resource, {
+      filters: [],
+      limit: 10,
+      offset: 0,
+      sort: { column: 'title', direction: 'asc' },
+    })
+
+    expect(rows).toEqual([{ id: 1, title: 'Hello' }])
+    expect(repository.calls.some((call) => call.method === 'orderBy')).toBe(false)
+  })
+
   it('finds, creates, updates, deletes, and exports records through repositories', async () => {
     const assignAndSave = vi.fn(async () => {})
     const repository = new FakeRepository(makeMetadata(), {
@@ -281,6 +320,11 @@ class FakeQueryBuilder implements PromiseLike<AnyPersistenceRecord[]> {
 
   offset(count: number) {
     this.calls.push({ method: 'offset', args: [count] })
+    return this
+  }
+
+  orderBy(column: string, direction: 'asc' | 'desc') {
+    this.calls.push({ method: 'orderBy', args: [column, direction] })
     return this
   }
 
