@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, it, expect, vi } from 'vitest'
 import type { AdminBackend } from '@/backends/types.ts'
-import { loadResources, validateResources } from '@/resources/loader.ts'
+import { applyReferencedBy, loadResources, validateResources } from '@/resources/loader.ts'
 import { validateReferences } from '@/resources/references.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 import type { PgTable } from 'drizzle-orm/pg-core'
@@ -150,6 +150,94 @@ describe('loadResources', () => {
     } finally {
       await rm(resourcesDir, { recursive: true, force: true })
     }
+  })
+})
+
+describe('applyReferencedBy', () => {
+  const foreignKeyColumn = {
+    name: 'postId',
+    sqlName: 'post_id',
+    dataType: 'integer' as const,
+    isNullable: false,
+    isPrimaryKey: false,
+    hasDefault: false,
+  }
+
+  it('adds the child foreign key to its declared filters', () => {
+    const posts = makeResource({
+      tableName: 'posts',
+      options: { referencedBy: { comments: { table: 'comments', foreignKey: 'postId' } } },
+    })
+    const comments = makeResource({
+      tableName: 'comments',
+      columns: [foreignKeyColumn],
+    })
+
+    const resolved = applyReferencedBy([posts, comments])
+
+    expect(resolved[1].options.index?.filters).toEqual(['postId'])
+    expect(resolved[1]).not.toBe(comments)
+    expect(comments.options.index).toBeUndefined()
+  })
+
+  it('does not duplicate an already declared child filter', () => {
+    const posts = makeResource({
+      tableName: 'posts',
+      options: { referencedBy: { comments: { table: 'comments', foreignKey: 'postId' } } },
+    })
+    const comments = makeResource({
+      tableName: 'comments',
+      columns: [foreignKeyColumn],
+      options: { index: { filters: ['postId'] } },
+    })
+
+    const resolved = applyReferencedBy([posts, comments])
+
+    expect(resolved[1].options.index?.filters).toEqual(['postId'])
+  })
+
+  it('stamps missing child reference metadata with the parent table and id column', () => {
+    const posts = makeResource({
+      tableName: 'posts',
+      options: { referencedBy: { comments: { table: 'comments', foreignKey: 'postId' } } },
+    })
+    const comments = makeResource({
+      tableName: 'comments',
+      columns: [foreignKeyColumn],
+    })
+
+    const resolved = applyReferencedBy([posts, comments])
+
+    expect(resolved[1].columns[0].references).toEqual({ table: 'posts', column: 'id' })
+    expect(comments.columns[0].references).toBeUndefined()
+  })
+
+  it('preserves existing child reference metadata', () => {
+    const posts = makeResource({
+      tableName: 'posts',
+      options: { referencedBy: { comments: { table: 'comments', foreignKey: 'postId' } } },
+    })
+    const comments = makeResource({
+      tableName: 'comments',
+      columns: [{
+        ...foreignKeyColumn,
+        references: { table: 'articles', column: 'slug' },
+      }],
+    })
+
+    const resolved = applyReferencedBy([posts, comments])
+
+    expect(resolved[1].columns[0].references).toEqual({ table: 'articles', column: 'slug' })
+  })
+
+  it('skips an unknown child table without throwing', () => {
+    const posts = makeResource({
+      tableName: 'posts',
+      options: { referencedBy: { comments: { table: 'missing_comments', foreignKey: 'postId' } } },
+    })
+
+    expect(() => applyReferencedBy([posts])).not.toThrow()
+    expect(applyReferencedBy([posts])[0]).toEqual(posts)
   })
 })
 

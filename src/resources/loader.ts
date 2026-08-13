@@ -97,6 +97,48 @@ function mergeConfiguredReferences<TableRef, ActionDatabase>(
   }
 }
 
+export function applyReferencedBy<TableRef, ActionDatabase>(
+  resources: ResourceDefinition<TableRef, ActionDatabase>[],
+): ResourceDefinition<TableRef, ActionDatabase>[] {
+  return resources.map((resource) => {
+    let columns = resource.columns
+    let options = resource.options
+
+    for (const parent of resources) {
+      for (const referencedBy of Object.values(parent.options.referencedBy ?? {})) {
+        if (referencedBy.table !== resource.tableName) continue
+
+        const foreignKeyColumn = columns.find((column) => column.name === referencedBy.foreignKey)
+        if (!foreignKeyColumn) continue
+
+        const filters = options.index?.filters ?? []
+        if (!filters.includes(referencedBy.foreignKey)) {
+          options = {
+            ...options,
+            index: {
+              ...options.index,
+              filters: [...filters, referencedBy.foreignKey],
+            },
+          }
+        }
+
+        if (!foreignKeyColumn.references) {
+          columns = columns.map((column) =>
+            column.name === referencedBy.foreignKey
+              ? {
+                  ...column,
+                  references: { table: parent.tableName, column: 'id' },
+                }
+              : column,
+          )
+        }
+      }
+    }
+
+    return { ...resource, columns, options }
+  })
+}
+
 export function validateResources<TableRef, ActionDatabase>(resources: ResourceDefinition<TableRef, ActionDatabase>[]): string[] {
   const errors: string[] = []
   const routePaths = new Map<string, string>()

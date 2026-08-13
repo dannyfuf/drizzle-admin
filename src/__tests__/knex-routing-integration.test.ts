@@ -39,6 +39,7 @@ const routeMocks = vi.hoisted(() => {
 vi.mock('@/resources/loader.ts', () => ({
   loadResources: async () => ({ resources: [routeMocks.postsResource], errors: [] }),
   validateResources: () => [],
+  applyReferencedBy: (resources: unknown[]) => resources,
 }))
 
 import { DrizzleAdmin } from '@/DrizzleAdmin.ts'

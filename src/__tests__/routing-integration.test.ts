@@ -81,6 +81,7 @@ vi.mock('@/resources/loader.ts', () => ({
     errors: [],
   }),
   validateResources: () => [],
+  applyReferencedBy: (resources: unknown[]) => resources,
 }))
 
 vi.mock('@/dialects/postgresql.ts', () => ({

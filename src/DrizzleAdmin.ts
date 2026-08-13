@@ -7,7 +7,7 @@ import { createKnexBackend } from "@/backends/knex.ts";
 import { createPersistenceBackend } from "@/backends/persistence.ts";
 import type { DrizzleAdminConfig, KnexBackendConfig, PersistenceBackendConfig } from "@/config.ts";
 import { validateDeclaredFilters } from "@/resources/filters.ts";
-import { loadResources, validateResources } from "@/resources/loader.ts";
+import { applyReferencedBy, loadResources, validateResources } from "@/resources/loader.ts";
 import { validateReferences } from "@/resources/references.ts";
 import type { KnexTableDefinition, ResourceDefinition } from "@/resources/types.ts";
 import { createAuthRoutes } from "@/routes/auth.ts";
@@ -104,8 +104,9 @@ export class DrizzleAdmin {
       );
     }
 
-    this.resources = resources;
-    console.log(`[DrizzleAdmin] Loaded ${resources.length} resource(s)`);
+    const resolvedResources = applyReferencedBy(resources);
+    this.resources = resolvedResources;
+    console.log(`[DrizzleAdmin] Loaded ${resolvedResources.length} resource(s)`);
   }
 
   /** Returns the loaded resource definitions. */

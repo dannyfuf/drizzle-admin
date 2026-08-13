@@ -24,6 +24,7 @@ vi.mock('drizzle-orm', () => ({
 vi.mock('@/resources/loader.ts', () => ({
   loadResources: loaderMocks.loadResourcesMock,
   validateResources: loaderMocks.validateResourcesMock,
+  applyReferencedBy: (resources: unknown[]) => resources,
 }))
 
 vi.mock('@/dialects/postgresql.ts', () => ({
