@@ -7,7 +7,8 @@ import { createKnexBackend } from "@/backends/knex.ts";
 import { createPersistenceBackend } from "@/backends/persistence.ts";
 import type { DrizzleAdminConfig, KnexBackendConfig, PersistenceBackendConfig } from "@/config.ts";
 import { validateDeclaredFilters } from "@/resources/filters.ts";
-import { loadResources, validateResources } from "@/resources/loader.ts";
+import { applyReferencedBy, loadResources, validateResources } from "@/resources/loader.ts";
+import { validateReferencedBy, validateReferences } from "@/resources/references.ts";
 import type { KnexTableDefinition, ResourceDefinition } from "@/resources/types.ts";
 import { createAuthRoutes } from "@/routes/auth.ts";
 import { createCrudRoutes } from "@/routes/crud.ts";
@@ -15,7 +16,7 @@ import { authMiddleware } from "@/auth/middleware.ts";
 import { createInMemoryLoginRateLimiter } from "@/auth/rate-limit.ts";
 import { loginPage } from "@/views/login.ts";
 import { hashPassword } from "@/auth/password.ts";
-import { adminUrl } from "@/utils/url.ts";
+import { adminUrl, normalizeBasePath } from "@/utils/url.ts";
 import type { AnyPgDatabase, PersistenceActionContext, PersistenceResourceRef } from "@/types.ts";
 
 /**
@@ -64,17 +65,7 @@ export class DrizzleAdmin {
     this.app = new Hono();
     this.backend = createBackend(config);
 
-    // Normalize and validate basePath
-    const raw = config.basePath ?? '';
-    if (raw) {
-      if (!raw.startsWith('/')) {
-        throw new Error(`basePath must start with "/". Got: "${raw}"`);
-      }
-      if (raw.includes('//')) {
-        throw new Error(`basePath must not contain "//". Got: "${raw}"`);
-      }
-    }
-    this.basePath = raw.endsWith('/') ? raw.slice(0, -1) : raw;
+    this.basePath = normalizeBasePath(config.basePath ?? '');
 
     this.backend.validateAdminUsersTable(config.adminUsers);
   }
@@ -96,7 +87,18 @@ export class DrizzleAdmin {
     const filterValidationErrors = resources.flatMap((resource) =>
       validateDeclaredFilters(resource, resource.columns),
     );
-    const allValidationErrors = [...validationErrors, ...filterValidationErrors];
+    const referenceValidationErrors = resources.flatMap((resource) =>
+      validateReferences(resource, resources),
+    );
+    const referencedByValidationErrors = resources.flatMap((resource) =>
+      validateReferencedBy(resource, resources),
+    );
+    const allValidationErrors = [
+      ...validationErrors,
+      ...filterValidationErrors,
+      ...referenceValidationErrors,
+      ...referencedByValidationErrors,
+    ];
     if (allValidationErrors.length > 0) {
       for (const error of allValidationErrors) {
         console.error(`[DrizzleAdmin] ${error}`);
@@ -106,8 +108,9 @@ export class DrizzleAdmin {
       );
     }
 
-    this.resources = resources;
-    console.log(`[DrizzleAdmin] Loaded ${resources.length} resource(s)`);
+    const resolvedResources = applyReferencedBy(resources);
+    this.resources = resolvedResources;
+    console.log(`[DrizzleAdmin] Loaded ${resolvedResources.length} resource(s)`);
   }
 
   /** Returns the loaded resource definitions. */

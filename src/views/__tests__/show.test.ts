@@ -69,6 +69,24 @@ describe('formatShowValue', () => {
     expect(result).toContain('&lt;b&gt;')
     expect(result).not.toContain('<b>')
   })
+
+  it('renders registered reference values as escaped, URL-encoded links', () => {
+    const result = formatShowValue(
+      '<user/42>',
+      makeColumn({ name: 'authorId' }),
+      { authorId: 'users' },
+      '/admin',
+    )
+
+    expect(result).toContain('href="/admin/users/%3Cuser%2F42%3E"')
+    expect(result).toContain('&lt;user/42&gt;')
+  })
+
+  it('leaves null reference values unchanged', () => {
+    const result = formatShowValue(null, makeColumn({ name: 'authorId' }), { authorId: 'users' }, '/admin')
+    expect(result).toContain('—')
+    expect(result).not.toContain('<a')
+  })
 })
 
 describe('showView', () => {
@@ -81,6 +99,8 @@ describe('showView', () => {
     record: { id: 1, title: 'Test Card' } as Record<string, unknown>,
     csrfToken: 'test-token',
     basePath: '',
+    referenceRoutes: {},
+    referencedByRoutes: [],
   }
 
   it('returns object with content and modals strings', () => {
@@ -125,5 +145,43 @@ describe('showView', () => {
     expect(content).toContain('Email')
     expect(content).toContain('test@test.com')
     expect(content).not.toContain('passwordHash')
+  })
+
+  it('renders reference links in detail rows', () => {
+    const { content } = showView({
+      ...baseProps,
+      columns: [makeColumn({ name: 'id', isPrimaryKey: true }), makeColumn({ name: 'authorId' })],
+      record: { id: 1, authorId: 42 },
+      basePath: '/admin',
+      referenceRoutes: { authorId: 'users' },
+    })
+
+    expect(content).toContain('href="/admin/users/42"')
+    expect(content).toContain('>42</a>')
+  })
+
+  it('renders a Related section with referencedBy links after the field card', () => {
+    const { content } = showView({
+      ...baseProps,
+      record: { id: 42, title: 'Test Card' },
+      basePath: '/admin',
+      referencedByRoutes: [{
+        label: 'postComments',
+        childRoutePath: 'comments',
+        foreignKey: 'postId',
+        parentKeyName: 'id',
+      }],
+    })
+
+    expect(content).toContain('Related')
+    expect(content).toContain('href="/admin/comments?filter_postId=42"')
+    expect(content).toContain('>Post Comments</a>')
+    expect(content.indexOf('Test Card')).toBeLessThan(content.indexOf('Related'))
+  })
+
+  it('does not render a Related section without referencedBy routes', () => {
+    const { content } = showView(baseProps)
+
+    expect(content).not.toContain('Related')
   })
 })

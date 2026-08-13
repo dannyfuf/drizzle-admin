@@ -9,6 +9,8 @@ import { button, linkButton } from '@/views/components/button.ts'
 import { renderCollectionActions } from '@/views/components/actions.ts'
 import { adminUrl } from '@/utils/url.ts'
 import { formatTimestamp } from '@/utils/date.ts'
+import { referenceLink } from '@/views/components/reference-link.ts'
+import { referencedByLink, type ReferencedByRoute } from '@/views/components/referenced-by-link.ts'
 
 export interface IndexViewProps<TableRef = unknown, ActionDatabase = never> {
   resource: ResourceDefinition<TableRef, ActionDatabase>
@@ -20,10 +22,12 @@ export interface IndexViewProps<TableRef = unknown, ActionDatabase = never> {
   pagination: PaginationProps
   csrfToken: string
   basePath: string
+  referenceRoutes: Record<string, string>
+  referencedByRoutes: ReferencedByRoute[]
 }
 
 export function indexView<TableRef, ActionDatabase>(props: IndexViewProps<TableRef, ActionDatabase>): string {
-  const { resource, columns, records, filters, activeFilterQuery, sort, pagination, csrfToken, basePath } = props
+  const { resource, columns, records, filters, activeFilterQuery, sort, pagination, csrfToken, basePath, referenceRoutes, referencedByRoutes } = props
 
   const visibleColumns = getVisibleColumns(columns, resource.options.index)
   const listUrl = adminUrl(basePath, `/${resource.routePath}`)
@@ -58,11 +62,28 @@ export function indexView<TableRef, ActionDatabase>(props: IndexViewProps<TableR
   const headerCells = visibleColumns
     .map(col => renderHeaderCell({ column: col, sort, listUrl, activeFilterQuery }))
     .join('')
+  const referencedByHeaderCells = referencedByRoutes
+    .map(route => `<th class="${styles.tableHeader} px-4 py-3">${escapeHtml(formatColumnHeader(route.label))}</th>`)
+    .join('')
 
   const rows = records.map(record => {
     const cells = visibleColumns
-      .map(col => `<td class="${styles.tableCell}">${formatCellValue(record[col.name], col)}</td>`)
+      .map(col => `<td class="${styles.tableCell}">${formatCellValue(record[col.name], col, referenceRoutes, basePath)}</td>`)
       .join('')
+    const referencedByCells = referencedByRoutes.map((route) => {
+      const value = record[route.parentKeyName]
+      const content = value === null || value === undefined
+        ? `<span class="${styles.textMuted}">—</span>`
+        : referencedByLink({
+            label: formatColumnHeader(route.label),
+            childRoutePath: route.childRoutePath,
+            foreignKey: route.foreignKey,
+            value,
+            basePath,
+          })
+
+      return `<td class="${styles.tableCell}">${content}</td>`
+    }).join('')
 
     const id = record[resource.primaryKey]
     const actions = `
@@ -72,7 +93,7 @@ export function indexView<TableRef, ActionDatabase>(props: IndexViewProps<TableR
       </td>
     `
 
-    return `<tr class="${styles.tableRow}">${cells}${actions}</tr>`
+    return `<tr class="${styles.tableRow}">${cells}${referencedByCells}${actions}</tr>`
   }).join('')
 
   return `
@@ -81,7 +102,7 @@ export function indexView<TableRef, ActionDatabase>(props: IndexViewProps<TableR
     <div class="${styles.card} overflow-hidden mt-4">
       <table class="${styles.table}">
         <thead class="border-b border-zinc-800">
-          <tr>${headerCells}<th class="${styles.tableHeader} px-4 py-3 text-right">Actions</th></tr>
+          <tr>${headerCells}${referencedByHeaderCells}<th class="${styles.tableHeader} px-4 py-3 text-right">Actions</th></tr>
         </thead>
         <tbody>
           ${rows}
@@ -257,9 +278,19 @@ export function formatColumnHeader(name: string): string {
     .trim()
 }
 
-export function formatCellValue(value: unknown, column: ColumnMeta): string {
+export function formatCellValue(
+  value: unknown,
+  column: ColumnMeta,
+  referenceRoutes: Record<string, string> = {},
+  basePath = '',
+): string {
   if (value === null || value === undefined) {
     return `<span class="${styles.textMuted}">—</span>`
+  }
+
+  const referenceRoute = referenceRoutes[column.name]
+  if (referenceRoute) {
+    return referenceLink({ value, routePath: referenceRoute, basePath })
   }
 
   if (column.dataType === 'timestamp' && value instanceof Date) {

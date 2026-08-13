@@ -58,6 +58,37 @@ describe('validateDeclaredFilters', () => {
     expect(filters.map((filter) => filter.queryKey)).toEqual(['filter_status', 'filter_title'])
   })
 
+  it('uses contains only for plain text columns and exact matching otherwise', () => {
+    const resource = makeResource({
+      options: {
+        index: {
+          filters: ['title', 'authorId', 'views', 'featured', 'status', 'publishedAt'],
+        },
+      },
+    })
+    const filters = getDeclaredFilters(resource, [
+      makeColumn({ name: 'title', dataType: 'text' }),
+      makeColumn({
+        name: 'authorId',
+        dataType: 'text',
+        references: { table: 'users', column: 'id' },
+      }),
+      makeColumn({ name: 'views', dataType: 'integer' }),
+      makeColumn({ name: 'featured', dataType: 'boolean' }),
+      makeColumn({ name: 'status', dataType: 'enum', enumValues: ['draft', 'published'] }),
+      makeColumn({ name: 'publishedAt', dataType: 'timestamp' }),
+    ])
+
+    expect(filters.map(({ name, matchMode }) => [name, matchMode])).toEqual([
+      ['title', 'contains'],
+      ['authorId', 'exact'],
+      ['views', 'exact'],
+      ['featured', 'exact'],
+      ['status', 'exact'],
+      ['publishedAt', 'exact'],
+    ])
+  })
+
   it('rejects unknown columns', () => {
     const resource = makeResource({
       options: {
@@ -117,15 +148,16 @@ describe('validateDeclaredFilters', () => {
 
 describe('parseDeclaredFilterValues', () => {
   const declaredFilters = [
-    { name: 'title', queryKey: 'filter_title', column: makeColumn({ name: 'title', dataType: 'text' }) },
-    { name: 'views', queryKey: 'filter_views', column: makeColumn({ name: 'views', dataType: 'integer' }) },
-    { name: 'featured', queryKey: 'filter_featured', column: makeColumn({ name: 'featured', dataType: 'boolean' }) },
+    { name: 'title', queryKey: 'filter_title', column: makeColumn({ name: 'title', dataType: 'text' }), matchMode: 'contains' as const },
+    { name: 'views', queryKey: 'filter_views', column: makeColumn({ name: 'views', dataType: 'integer' }), matchMode: 'exact' as const },
+    { name: 'featured', queryKey: 'filter_featured', column: makeColumn({ name: 'featured', dataType: 'boolean' }), matchMode: 'exact' as const },
     {
       name: 'status',
       queryKey: 'filter_status',
       column: makeColumn({ name: 'status', dataType: 'enum', enumValues: ['draft', 'published'] }),
+      matchMode: 'exact' as const,
     },
-    { name: 'publishedAt', queryKey: 'filter_publishedAt', column: makeColumn({ name: 'publishedAt', dataType: 'timestamp' }) },
+    { name: 'publishedAt', queryKey: 'filter_publishedAt', column: makeColumn({ name: 'publishedAt', dataType: 'timestamp' }), matchMode: 'exact' as const },
   ]
 
   it('parses supported filter values and drops invalid ones', () => {

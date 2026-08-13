@@ -134,7 +134,7 @@ export class DrizzleBackend implements AdminBackend<AnyPgDatabase, PgTable> {
   private buildFilterCondition(resource: ResourceDefinition<PgTable, AnyPgDatabase>, parsedFilter: ParsedFilter): SQL {
     const column = this.getTableColumn(resource, parsedFilter.filter.name)
 
-    if (parsedFilter.filter.column.dataType === 'text') {
+    if (parsedFilter.filter.matchMode === 'contains') {
       return ilike(column, `%${String(parsedFilter.value)}%`)
     }
 

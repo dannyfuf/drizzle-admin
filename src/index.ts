@@ -33,6 +33,7 @@ export {
 export { hashPassword } from '@/auth/password.ts'
 export { createInMemoryLoginRateLimiter } from '@/auth/rate-limit.ts'
 export type { LoginRateLimiter, LoginRateLimitOptions } from '@/auth/rate-limit.ts'
+export { createResourceUrls } from '@/urls.ts'
 
 export type { DrizzleAdminHandler } from '@/DrizzleAdmin.ts'
 export type {
@@ -69,3 +70,4 @@ export type {
   ResourceOptions,
 } from '@/resources/types.ts'
 export type { ColumnMeta, DialectAdapter } from '@/dialects/types.ts'
+export type { ResourceUrl, ResourceUrlsConfig } from '@/urls.ts'

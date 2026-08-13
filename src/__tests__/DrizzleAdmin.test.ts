@@ -24,6 +24,7 @@ vi.mock('drizzle-orm', () => ({
 vi.mock('@/resources/loader.ts', () => ({
   loadResources: loaderMocks.loadResourcesMock,
   validateResources: loaderMocks.validateResourcesMock,
+  applyReferencedBy: (resources: unknown[]) => resources,
 }))
 
 vi.mock('@/dialects/postgresql.ts', () => ({
@@ -206,6 +207,67 @@ describe('DrizzleAdmin', () => {
 
       const admin = new DrizzleAdmin(makeConfig())
       await expect(admin.initialize()).rejects.toThrow('Invalid resource configuration')
+    })
+
+    it('fails fast for references to unregistered resources', async () => {
+      const resource: ResourceDefinition = {
+        table: {
+          _columns: {
+            id: { name: 'id' },
+            authorId: { name: 'author_id' },
+          },
+          id: { name: 'id' },
+          authorId: { name: 'author_id' },
+        } as unknown as PgTable,
+        tableName: 'posts',
+        routePath: 'posts',
+        displayName: 'Post',
+        primaryKey: 'id',
+        columns: [
+          { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+          { name: 'authorId', sqlName: 'author_id', dataType: 'integer', isNullable: false, isPrimaryKey: false, hasDefault: false },
+        ],
+        options: {
+          references: {
+            authorId: { table: 'users' },
+          },
+        },
+      }
+
+      loaderMocks.loadResourcesMock.mockResolvedValue({ resources: [resource], errors: [] })
+
+      const admin = new DrizzleAdmin(makeConfig())
+      await expect(admin.initialize()).rejects.toThrow('Invalid resource configuration')
+    })
+
+    it('fails fast with the aggregated message for invalid referencedBy configuration', async () => {
+      const resource: ResourceDefinition = {
+        table: {
+          _columns: {
+            id: { name: 'id' },
+          },
+          id: { name: 'id' },
+        } as unknown as PgTable,
+        tableName: 'posts',
+        routePath: 'posts',
+        displayName: 'Post',
+        primaryKey: 'id',
+        columns: [
+          { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+        ],
+        options: {
+          referencedBy: {
+            comments: { table: 'missing_comments', foreignKey: 'postId' },
+          },
+        },
+      }
+
+      loaderMocks.loadResourcesMock.mockResolvedValue({ resources: [resource], errors: [] })
+
+      const admin = new DrizzleAdmin(makeConfig())
+      await expect(admin.initialize()).rejects.toThrow(
+        'Invalid resource configuration. 1 error(s) found.',
+      )
     })
   })
 

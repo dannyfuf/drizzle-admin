@@ -91,24 +91,26 @@ const routeMocks = vi.hoisted(() => {
   }
 
   class FakeBuilder {
-    private result: Record<string, unknown>[] = []
+    private result: 'select' | 'count' = 'select'
+    private filters: unknown[][] = []
 
     constructor(private readonly repository: FakeRepository) {}
 
     select(...args: unknown[]) {
       this.repository.calls.push({ method: 'select', args })
-      this.result = this.repository.rows
+      this.result = 'select'
       return this
     }
 
     where(...args: unknown[]) {
       this.repository.calls.push({ method: 'where', args })
+      this.filters.push(args)
       return this
     }
 
     count(...args: unknown[]) {
       this.repository.calls.push({ method: 'count', args })
-      this.result = [{ count: this.repository.rows.length }]
+      this.result = 'count'
       return this
     }
 
@@ -131,7 +133,19 @@ const routeMocks = vi.hoisted(() => {
       onfulfilled?: ((value: Record<string, unknown>[]) => TResult1 | PromiseLike<TResult1>) | null,
       onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
     ) {
-      return Promise.resolve(this.result).then(onfulfilled, onrejected)
+      const rows = this.repository.rows.filter((row) => this.filters.every((filter) => {
+        const [column, operatorOrValue, expected] = filter
+        const actual = row[String(column)]
+
+        if (filter.length === 2) return String(actual) === String(operatorOrValue)
+        if (operatorOrValue === 'ilike') {
+          return String(actual).toLowerCase().includes(String(expected).replaceAll('%', '').toLowerCase())
+        }
+
+        return false
+      }))
+      const result = this.result === 'count' ? [{ count: rows.length }] : rows
+      return Promise.resolve(result).then(onfulfilled, onrejected)
     }
   }
 
@@ -158,6 +172,17 @@ const routeMocks = vi.hoisted(() => {
     primaryKey: 'id',
     columnMetadata: columns,
   }
+  const commentColumns = [
+    { name: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+    { name: 'post_id', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+    { name: 'body', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+  ]
+  const commentMetadata = {
+    tableName: 'comments',
+    columns: commentColumns.map((column) => column.name),
+    primaryKey: 'id',
+    columnMetadata: commentColumns,
+  }
   const adminMetadata = {
     tableName: 'admin_users',
     columns: ['id', 'email', 'password_hash', 'created_at', 'updated_at'],
@@ -171,8 +196,10 @@ const routeMocks = vi.hoisted(() => {
     ],
   }
   const postRepo = new FakeRepository(postMetadata)
+  const commentRepo = new FakeRepository(commentMetadata)
   const adminRepo = new FakeRepository(adminMetadata)
   const postFactory = () => postRepo
+  const commentFactory = () => commentRepo
   const adminFactory = () => adminRepo
   const postsResource = {
     table: postFactory,
@@ -185,16 +212,32 @@ const routeMocks = vi.hoisted(() => {
       index: { filters: ['title'] },
       memberActions: [{ name: 'Archive', handler: memberAction }],
       collectionActions: [{ name: 'Refresh', handler: collectionAction }],
+      referencedBy: { comments: { table: 'comments', foreignKey: 'post_id' } },
     },
   }
 
-  return { adminFactory, adminRepo, collectionAction, memberAction, postRepo, postsResource }
+  const commentsResource = {
+    table: commentFactory,
+    tableName: 'comments',
+    routePath: 'comments',
+    displayName: 'Comment',
+    primaryKey: 'id',
+    columns: commentColumns.map((column) => ({ ...column, sqlName: column.name })),
+    options: {},
+  }
+
+  return { adminFactory, adminRepo, collectionAction, commentRepo, commentsResource, memberAction, postRepo, postsResource }
 })
 
-vi.mock('@/resources/loader.ts', () => ({
-  loadResources: async () => ({ resources: [routeMocks.postsResource], errors: [] }),
-  validateResources: () => [],
-}))
+vi.mock('@/resources/loader.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/resources/loader.ts')>()
+
+  return {
+    ...actual,
+    loadResources: async () => ({ resources: [routeMocks.postsResource, routeMocks.commentsResource], errors: [] }),
+    validateResources: () => [],
+  }
+})
 
 import { DrizzleAdmin } from '@/DrizzleAdmin.ts'
 
@@ -212,10 +255,15 @@ describe('Persistence routing integration', () => {
     routeMocks.memberAction.mockClear()
     routeMocks.collectionAction.mockClear()
     routeMocks.postRepo.reset()
+    routeMocks.commentRepo.reset()
     routeMocks.adminRepo.reset()
     routeMocks.postRepo.rows = [{ id: 1, title: 'Hello', created_at: new Date(), updated_at: new Date() }]
     routeMocks.postRepo.findRow = { id: 1, title: 'Hello', created_at: new Date(), updated_at: new Date() }
     routeMocks.postRepo.insertRows = [{ id: 2, title: 'Created' }]
+    routeMocks.commentRepo.rows = [
+      { id: 1, post_id: '1', body: 'Related comment' },
+      { id: 2, post_id: '10', body: 'Unrelated comment' },
+    ]
     routeMocks.adminRepo.firstRow = { id: 1, email: 'admin@test.com', password_hash: adminPasswordHash }
 
     const admin = new DrizzleAdmin({
@@ -327,6 +375,18 @@ describe('Persistence routing integration', () => {
     expect(response.headers.get('Location')).toBe('/')
     expect(response.headers.get('set-cookie')).toContain('admin_session=')
     expect(routeMocks.adminRepo.calls).toContainEqual({ method: 'where', args: ['email', 'admin@test.com'] })
+  })
+
+  it('filters the child index by exact text FK values', async () => {
+    const cookie = await makeAuthCookie()
+    const response = await app.request('/comments?filter_post_id=1', { headers: { Cookie: cookie } })
+    const html = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(html).toContain('Related comment')
+    expect(html).not.toContain('Unrelated comment')
+    expect(routeMocks.commentRepo.calls).toContainEqual({ method: 'where', args: ['post_id', '1'] })
+    expect(routeMocks.commentRepo.calls).not.toContainEqual({ method: 'where', args: ['post_id', 'ilike', '%1%'] })
   })
 
   async function getCsrf(path: string, existingCookie = '') {

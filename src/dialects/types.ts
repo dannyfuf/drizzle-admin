@@ -16,6 +16,8 @@ export interface ColumnMeta {
   hasDefault: boolean
   /** For enum columns, the list of allowed values. */
   enumValues?: string[]
+  /** SQL names of the table and column referenced by this column. */
+  references?: { table: string; column: string }
 }
 
 /** Adapter interface for extracting column metadata from Drizzle tables for a specific SQL dialect. */

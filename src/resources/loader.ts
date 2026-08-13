@@ -60,10 +60,11 @@ export async function loadResources<TableRef = PgTable, ActionDatabase = AnyPgDa
         continue
       }
 
-      resources.push(backend.resolveResource({
+      const resource = backend.resolveResource({
         table: exported.table as TableRef,
         options: exported.options as never,
-      }))
+      })
+      resources.push(mergeConfiguredReferences(resource))
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       errors.push(`${file}: Failed to load - ${message}`)
@@ -71,6 +72,71 @@ export async function loadResources<TableRef = PgTable, ActionDatabase = AnyPgDa
   }
 
   return { resources, errors }
+}
+
+function mergeConfiguredReferences<TableRef, ActionDatabase>(
+  resource: ResourceDefinition<TableRef, ActionDatabase>,
+): ResourceDefinition<TableRef, ActionDatabase> {
+  const configuredReferences = resource.options.references
+  if (!configuredReferences) return resource
+
+  return {
+    ...resource,
+    columns: resource.columns.map((column) => {
+      const configured = configuredReferences[column.name]
+      if (!configured) return column
+
+      return {
+        ...column,
+        references: {
+          table: configured.table,
+          column: configured.column ?? 'id',
+        },
+      }
+    }),
+  }
+}
+
+export function applyReferencedBy<TableRef, ActionDatabase>(
+  resources: ResourceDefinition<TableRef, ActionDatabase>[],
+): ResourceDefinition<TableRef, ActionDatabase>[] {
+  return resources.map((resource) => {
+    let columns = resource.columns
+    let options = resource.options
+
+    for (const parent of resources) {
+      for (const referencedBy of Object.values(parent.options.referencedBy ?? {})) {
+        if (referencedBy.table !== resource.tableName) continue
+
+        const foreignKeyColumn = columns.find((column) => column.name === referencedBy.foreignKey)
+        if (!foreignKeyColumn) continue
+
+        const filters = options.index?.filters ?? []
+        if (!filters.includes(referencedBy.foreignKey)) {
+          options = {
+            ...options,
+            index: {
+              ...options.index,
+              filters: [...filters, referencedBy.foreignKey],
+            },
+          }
+        }
+
+        if (!foreignKeyColumn.references) {
+          columns = columns.map((column) =>
+            column.name === referencedBy.foreignKey
+              ? {
+                  ...column,
+                  references: { table: parent.tableName, column: 'id' },
+                }
+              : column,
+          )
+        }
+      }
+    }
+
+    return { ...resource, columns, options }
+  })
 }
 
 export function validateResources<TableRef, ActionDatabase>(resources: ResourceDefinition<TableRef, ActionDatabase>[]): string[] {

@@ -1,12 +1,13 @@
 import type { ColumnMeta } from '@/dialects/types.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 
-const SUPPORTED_FILTER_DATA_TYPES = new Set(['text', 'integer', 'boolean', 'enum', 'timestamp'])
+export const SUPPORTED_FILTER_DATA_TYPES = new Set(['text', 'integer', 'boolean', 'enum', 'timestamp'])
 
 export interface DeclaredFilter {
   name: string
   queryKey: string
   column: ColumnMeta
+  matchMode: 'exact' | 'contains'
 }
 
 export type ParsedFilterValue = string | number | boolean | Date
@@ -129,6 +130,7 @@ function resolveDeclaredFilters<TableRef, ActionDatabase>(
       name,
       queryKey: `filter_${name}`,
       column,
+      matchMode: column.dataType === 'text' && !column.references ? 'contains' : 'exact',
     })
   }
 
@@ -176,6 +178,6 @@ function parseFilterValue(column: ColumnMeta, rawValue: string): ParsedFilterVal
   return null
 }
 
-function isPasswordColumn(name: string): boolean {
+export function isPasswordColumn(name: string): boolean {
   return name.toLowerCase().includes('password')
 }

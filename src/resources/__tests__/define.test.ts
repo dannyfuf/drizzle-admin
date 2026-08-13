@@ -93,6 +93,38 @@ describe('defineKnexResource', () => {
     ])).toThrow('isNullable')
   })
 
+  it('accepts reference metadata', () => {
+    const table = defineKnexTable('posts', [
+      makeColumn(),
+      makeColumn({
+        name: 'authorId',
+        sqlName: 'author_id',
+        isPrimaryKey: false,
+        hasDefault: false,
+        references: { table: 'users', column: 'id' },
+      }),
+    ])
+
+    expect(table.columns[1].references).toEqual({ table: 'users', column: 'id' })
+  })
+
+  it.each([
+    [null, 'references must be an object'],
+    [{ table: '', column: 'id' }, 'references.table'],
+    [{ table: 'users', column: '' }, 'references.column'],
+  ])('rejects invalid reference metadata %j', (references, message) => {
+    expect(() => defineKnexTable('posts', [
+      makeColumn(),
+      makeColumn({
+        name: 'authorId',
+        sqlName: 'author_id',
+        isPrimaryKey: false,
+        hasDefault: false,
+        references: references as ColumnMeta['references'],
+      }),
+    ])).toThrow(message)
+  })
+
   it('creates admin users metadata with the same table shape', () => {
     const table = defineKnexAdminUsers('admin_users', [makeColumn()])
     expect(isKnexTableDefinition(table)).toBe(true)

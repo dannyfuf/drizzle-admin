@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildIndexFilterState, parseFormValues, parsePageNumber, render404 } from '@/routes/crud.ts'
+import { buildIndexFilterState, buildReferencedByRoutes, parseFormValues, parsePageNumber, render404 } from '@/routes/crud.ts'
 import type { ColumnMeta } from '@/dialects/types.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 import type { PgTable } from 'drizzle-orm/pg-core'
@@ -37,6 +37,7 @@ function makeFilter(overrides: Partial<DeclaredFilter> = {}): DeclaredFilter {
     name: column.name,
     queryKey: 'filter_title',
     column,
+    matchMode: 'contains',
     ...overrides,
   }
 }
@@ -248,5 +249,76 @@ describe('buildIndexFilterState', () => {
 
     expect(state.activeFilters).toEqual([])
     expect(state.activeFilterQuery).toEqual({})
+  })
+})
+
+describe('buildReferencedByRoutes', () => {
+  it('resolves child route metadata and maps the referenced SQL column to its parent JS name', () => {
+    const parent = makeResource({
+      tableName: 'posts',
+      routePath: 'posts',
+      primaryKey: 'postId',
+      columns: [makeColumn({ name: 'externalId', sqlName: 'external_id' })],
+      options: {
+        referencedBy: {
+          postComments: { table: 'comments', foreignKey: 'postId' },
+        },
+      },
+    })
+    const child = makeResource({
+      tableName: 'comments',
+      routePath: 'post-comments',
+      columns: [makeColumn({
+        name: 'postId',
+        sqlName: 'post_id',
+        references: { table: 'posts', column: 'external_id' },
+      })],
+    })
+
+    expect(buildReferencedByRoutes(parent, [parent, child])).toEqual([{
+      label: 'postComments',
+      childRoutePath: 'post-comments',
+      foreignKey: 'postId',
+      parentKeyName: 'externalId',
+    }])
+  })
+
+  it('falls back to the referenced column name and then the resource primary key', () => {
+    const configuredParent = makeResource({
+      tableName: 'posts',
+      primaryKey: 'postId',
+      options: {
+        referencedBy: {
+          comments: { table: 'comments', foreignKey: 'postId' },
+          notes: { table: 'notes', foreignKey: 'postId' },
+        },
+      },
+    })
+    const comments = makeResource({
+      tableName: 'comments',
+      columns: [makeColumn({
+        name: 'postId',
+        references: { table: 'posts', column: 'external_id' },
+      })],
+    })
+    const notes = makeResource({ tableName: 'notes', columns: [] })
+
+    expect(buildReferencedByRoutes(configuredParent, [configuredParent, comments, notes]))
+      .toEqual([
+        expect.objectContaining({ label: 'comments', parentKeyName: 'external_id' }),
+        expect.objectContaining({ label: 'notes', parentKeyName: 'postId' }),
+      ])
+  })
+
+  it('skips unknown child resources', () => {
+    const parent = makeResource({
+      options: {
+        referencedBy: {
+          comments: { table: 'comments', foreignKey: 'postId' },
+        },
+      },
+    })
+
+    expect(buildReferencedByRoutes(parent, [parent])).toEqual([])
   })
 })

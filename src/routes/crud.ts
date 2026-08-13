@@ -20,6 +20,7 @@ import { formView } from '@/views/form.ts'
 import { createActionRoutes } from '@/routes/actions.ts'
 import { getAdmin } from '@/auth/middleware.ts'
 import { adminUrl } from '@/utils/url.ts'
+import type { ReferencedByRoute } from '@/views/components/referenced-by-link.ts'
 
 interface CrudRoutesConfig<ActionDatabase = unknown, TableRef = unknown> {
   backend: AdminBackend<ActionDatabase, TableRef>
@@ -36,6 +37,8 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
   const declaredFilters = getDeclaredFilters(resource, columns)
   const perPage = resource.options.index?.perPage ?? 20
   const sortableColumns = getVisibleColumns(columns, resource.options.index).filter(isSortableColumn)
+  const referenceRoutes = buildReferenceRoutes(columns, allResources)
+  const referencedByRoutes = buildReferencedByRoutes(resource, allResources)
 
   // GET / - Index
   app.get('/', async (c) => {
@@ -81,6 +84,8 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       },
       csrfToken,
       basePath,
+      referenceRoutes,
+      referencedByRoutes,
     })
 
     return c.html(layout({
@@ -159,6 +164,8 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       record,
       csrfToken,
       basePath,
+      referenceRoutes,
+      referencedByRoutes,
     })
 
     return c.html(layout({
@@ -271,6 +278,48 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
   app.route('/', actionRoutes)
 
   return app
+}
+
+function buildReferenceRoutes<TableRef, ActionDatabase>(
+  columns: ColumnMeta[],
+  allResources: ResourceDefinition<TableRef, ActionDatabase>[],
+): Record<string, string> {
+  const routes: Record<string, string> = {}
+
+  for (const column of columns) {
+    if (!column.references) continue
+    const target = allResources.find((candidate) => candidate.tableName === column.references?.table)
+    if (target) routes[column.name] = target.routePath
+  }
+
+  return routes
+}
+
+export function buildReferencedByRoutes<TableRef, ActionDatabase>(
+  resource: ResourceDefinition<TableRef, ActionDatabase>,
+  allResources: ResourceDefinition<TableRef, ActionDatabase>[],
+): ReferencedByRoute[] {
+  const routes: ReferencedByRoute[] = []
+
+  for (const [label, config] of Object.entries(resource.options.referencedBy ?? {})) {
+    const child = allResources.find((candidate) => candidate.tableName === config.table)
+    if (!child) continue
+
+    const foreignKeyColumn = child.columns.find((column) => column.name === config.foreignKey)
+    const referencedColumn = foreignKeyColumn?.references?.column
+    const parentKeyName = resource.columns.find((column) => column.sqlName === referencedColumn)?.name
+      ?? referencedColumn
+      ?? resource.primaryKey
+
+    routes.push({
+      label,
+      childRoutePath: child.routePath,
+      foreignKey: config.foreignKey,
+      parentKeyName,
+    })
+  }
+
+  return routes
 }
 
 export interface IndexFilterState {

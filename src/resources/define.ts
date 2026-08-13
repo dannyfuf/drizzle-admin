@@ -180,4 +180,18 @@ function validateKnexColumn(tableName: string, column: ColumnMeta, index: number
   if (column.enumValues !== undefined && !Array.isArray(column.enumValues)) {
     throw new Error(`Knex table "${tableName}" column "${column.name}" enumValues must be an array when provided.`)
   }
+
+  if (column.references !== undefined) {
+    if (!column.references || typeof column.references !== 'object') {
+      throw new Error(`Knex table "${tableName}" column "${column.name}" references must be an object when provided.`)
+    }
+
+    if (typeof column.references.table !== 'string' || column.references.table.trim() === '') {
+      throw new Error(`Knex table "${tableName}" column "${column.name}" references.table must be a non-empty string.`)
+    }
+
+    if (typeof column.references.column !== 'string' || column.references.column.trim() === '') {
+      throw new Error(`Knex table "${tableName}" column "${column.name}" references.column must be a non-empty string.`)
+    }
+  }
 }
