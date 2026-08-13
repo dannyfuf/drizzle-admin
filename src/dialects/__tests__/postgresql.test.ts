@@ -1,9 +1,23 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { PgTable } from 'drizzle-orm/pg-core'
+import { foreignKey, integer, pgTable, type PgTable } from 'drizzle-orm/pg-core'
 
-vi.mock('drizzle-orm', () => ({
-  getTableColumns: (table: Record<string, unknown>) => (table as Record<string, unknown>)._columns,
-}))
+vi.mock('drizzle-orm', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('drizzle-orm')>()
+  return {
+    ...actual,
+    getTableColumns: (table: Record<string, unknown>) =>
+      '_columns' in table ? table._columns : actual.getTableColumns(table as unknown as PgTable),
+  }
+})
+
+vi.mock('drizzle-orm/pg-core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('drizzle-orm/pg-core')>()
+  return {
+    ...actual,
+    getTableConfig: (table: Record<string, unknown>) =>
+      '_columns' in table ? { foreignKeys: [] } : actual.getTableConfig(table as unknown as PgTable),
+  }
+})
 
 import { postgresqlAdapter } from '@/dialects/postgresql.ts'
 
@@ -126,6 +140,39 @@ describe('postgresqlAdapter', () => {
       const table = makeTable({ col: makeColumn() })
       const columns = postgresqlAdapter.extractColumns(table)
       expect(columns[0].enumValues).toBeUndefined()
+    })
+
+    it('extracts single-column foreign key references using SQL names', () => {
+      const users = pgTable('users', {
+        id: integer('user_id').primaryKey(),
+      })
+      const posts = pgTable('blog_posts', {
+        authorId: integer('author_id').references(() => users.id),
+      })
+
+      expect(postgresqlAdapter.extractColumns(posts)[0].references).toEqual({
+        table: 'users',
+        column: 'user_id',
+      })
+    })
+
+    it('skips composite foreign key references', () => {
+      const parents = pgTable('parents', {
+        tenantId: integer('tenant_id').notNull(),
+        id: integer('id').notNull(),
+      })
+      const children = pgTable('children', {
+        parentTenantId: integer('parent_tenant_id'),
+        parentId: integer('parent_id'),
+      }, (table) => ({
+        parentReference: foreignKey({
+          columns: [table.parentTenantId, table.parentId],
+          foreignColumns: [parents.tenantId, parents.id],
+        }),
+      }))
+
+      const columns = postgresqlAdapter.extractColumns(children)
+      expect(columns.every((column) => column.references === undefined)).toBe(true)
     })
   })
 })
