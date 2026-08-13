@@ -19,7 +19,10 @@ export interface ResourceUrl {
 }
 
 interface ResourceUrls {
-  index(table: PgTable | string): ResourceUrl
+  index(
+    table: PgTable | string,
+    opts?: { filters?: Record<string, string | number> },
+  ): ResourceUrl
   show(table: PgTable | string, id: string | number): ResourceUrl
   edit(table: PgTable | string, id: string | number): ResourceUrl
   'new'(table: PgTable | string): ResourceUrl
@@ -46,7 +49,15 @@ export function createResourceUrls(config: ResourceUrlsConfig = {}): ResourceUrl
   }
 
   return {
-    index: (table) => build(table),
+    index: (table, opts) => {
+      const params = new URLSearchParams()
+      for (const [key, value] of Object.entries(opts?.filters ?? {})) {
+        params.set(`filter_${key}`, String(value))
+      }
+
+      const query = params.toString()
+      return build(table, query ? `?${query}` : '')
+    },
     show: (table, id) => build(table, `/${encodeURIComponent(String(id))}`),
     edit: (table, id) => build(table, `/${encodeURIComponent(String(id))}/edit`),
     new: (table: PgTable | string) => build(table, '/new'),

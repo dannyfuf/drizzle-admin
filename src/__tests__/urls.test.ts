@@ -32,6 +32,37 @@ describe('createResourceUrls', () => {
     })
   })
 
+  it('builds an index URL with a single filter', () => {
+    expect(createResourceUrls().index('comments', { filters: { postId: 42 } })).toEqual({
+      path: '/comments?filter_postId=42',
+      url: '/comments?filter_postId=42',
+    })
+  })
+
+  it('builds an index URL with multiple filters', () => {
+    expect(createResourceUrls().index('comments', {
+      filters: { postId: 42, status: 'approved' },
+    }).path).toBe('/comments?filter_postId=42&filter_status=approved')
+  })
+
+  it('URL-encodes filter values', () => {
+    expect(createResourceUrls().index('comments', {
+      filters: { search: 'hello world & more' },
+    }).path).toBe('/comments?filter_search=hello+world+%26+more')
+  })
+
+  it('includes filters with basePath and origin', () => {
+    const urls = createResourceUrls({
+      basePath: '/admin',
+      origin: 'https://app.example.com',
+    })
+
+    expect(urls.index('comments', { filters: { postId: 42 } })).toEqual({
+      path: '/admin/comments?filter_postId=42',
+      url: 'https://app.example.com/admin/comments?filter_postId=42',
+    })
+  })
+
   it('URL-encodes record IDs', () => {
     expect(createResourceUrls().show('posts', 'a/b c')).toEqual({
       path: '/posts/a%2Fb%20c',
