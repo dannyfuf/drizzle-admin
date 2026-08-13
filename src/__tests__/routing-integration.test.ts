@@ -23,6 +23,17 @@ const mockPostsTable = {
   updatedAt: { name: 'updatedAt' },
 }
 
+const mockCommentsTable = {
+  _columns: {
+    id: { name: 'id', dataType: 'number', columnType: 'PgSerial', notNull: true, hasDefault: true, isPrimaryKey: true },
+    postId: { name: 'post_id', dataType: 'string', columnType: 'PgText', notNull: true, hasDefault: false, isPrimaryKey: false },
+    body: { name: 'body', dataType: 'string', columnType: 'PgText', notNull: true, hasDefault: false, isPrimaryKey: false },
+  },
+  id: { name: 'id' },
+  postId: { name: 'post_id' },
+  body: { name: 'body' },
+}
+
 const postsResource: ResourceDefinition = {
   table: mockPostsTable as unknown as PgTable,
   tableName: 'posts',
@@ -48,6 +59,9 @@ const postsResource: ResourceDefinition = {
     index: {
       filters: ['title'],
     },
+    referencedBy: {
+      comments: { table: 'comments', foreignKey: 'postId' },
+    },
   },
 }
 
@@ -63,26 +77,44 @@ const usersResource: ResourceDefinition = {
   options: {},
 }
 
+const commentsResource: ResourceDefinition = {
+  table: mockCommentsTable as unknown as PgTable,
+  tableName: 'comments',
+  routePath: 'comments',
+  displayName: 'Comment',
+  primaryKey: 'id',
+  columns: [
+    { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+    { name: 'postId', sqlName: 'post_id', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+    { name: 'body', sqlName: 'body', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+  ],
+  options: {},
+}
+
 vi.mock('drizzle-orm', () => ({
   getTableColumns: (table: Record<string, unknown>) =>
     (table as Record<string, unknown>)._columns ?? {},
   getTableName: () => 'posts',
-  eq: () => {},
-  and: () => ({}),
-  ilike: () => ({}),
+  eq: (column: { name: string }, value: unknown) => ({ operator: 'eq', column: column.name, value }),
+  and: (...conditions: unknown[]) => ({ operator: 'and', conditions }),
+  ilike: (column: { name: string }, value: unknown) => ({ operator: 'ilike', column: column.name, value }),
   asc: () => ({}),
   desc: () => ({}),
   sql: (strings: TemplateStringsArray) => strings.join(''),
 }))
 
-vi.mock('@/resources/loader.ts', () => ({
-  loadResources: async () => ({
-    resources: [postsResource, usersResource],
-    errors: [],
-  }),
-  validateResources: () => [],
-  applyReferencedBy: (resources: unknown[]) => resources,
-}))
+vi.mock('@/resources/loader.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/resources/loader.ts')>()
+
+  return {
+    ...actual,
+    loadResources: async () => ({
+      resources: [postsResource, usersResource, commentsResource],
+      errors: [],
+    }),
+    validateResources: () => [],
+  }
+})
 
 vi.mock('@/dialects/postgresql.ts', () => ({
   postgresqlAdapter: {
@@ -120,11 +152,53 @@ function makeAdminUsers() {
 }
 
 function makeMockDb() {
+  interface MockCondition {
+    operator: 'eq' | 'ilike' | 'and'
+    column?: string
+    value?: unknown
+    conditions?: MockCondition[]
+  }
+
+  const tableRows = new Map<unknown, Record<string, unknown>[]>([
+    [mockPostsTable, [{ id: 1, title: 'Test Post', authorId: 42, createdAt: new Date(), updatedAt: new Date() }]],
+    [mockCommentsTable, [
+      { id: 1, postId: '1', body: 'Related comment' },
+      { id: 2, postId: '10', body: 'Unrelated comment' },
+    ]],
+  ])
+
+  const matches = (row: Record<string, unknown>, condition: MockCondition | undefined): boolean => {
+    if (!condition) return true
+    if (condition.operator === 'and') {
+      return (condition.conditions ?? []).every((child) => matches(row, child))
+    }
+
+    const value = row[condition.column === 'post_id' ? 'postId' : condition.column ?? '']
+    if (condition.operator === 'ilike') {
+      const needle = String(condition.value).replaceAll('%', '').toLowerCase()
+      return String(value).toLowerCase().includes(needle)
+    }
+
+    return String(value) === String(condition.value)
+  }
+
   const chainable = () => {
     const chain: Record<string, unknown> = {}
-    chain.select = () => chain
-    chain.from = () => chain
-    chain.where = () => chain
+    let table: unknown
+    let condition: MockCondition | undefined
+    let countQuery = false
+    chain.select = (arg?: unknown) => {
+      countQuery = Boolean(arg && typeof arg === 'object' && 'count' in arg)
+      return chain
+    }
+    chain.from = (value: unknown) => {
+      table = value
+      return chain
+    }
+    chain.where = (value: MockCondition | undefined) => {
+      condition = value
+      return chain
+    }
     chain.orderBy = () => chain
     chain.limit = () => chain
     chain.offset = () => chain
@@ -134,26 +208,15 @@ function makeMockDb() {
     chain.update = () => chain
     chain.set = () => chain
     chain.delete = () => chain
-    // Default: returns array with one record for selects
-    chain.then = (resolve: (v: unknown) => void) =>
-      resolve([{ id: 1, title: 'Test Post', authorId: 42, createdAt: new Date(), updatedAt: new Date() }])
+    chain.then = (resolve: (v: unknown) => void) => {
+      const rows = (tableRows.get(table) ?? []).filter((row) => matches(row, condition))
+      resolve(countQuery ? [{ count: rows.length }] : rows)
+    }
     return chain
   }
 
   return {
-    select: (arg?: unknown) => {
-      const chain = chainable()
-      // If select is called with { count: ... }, return count result
-      if (arg && typeof arg === 'object' && 'count' in arg) {
-        chain.from = () => ({
-          where: () => ({
-            then: (resolve: (v: unknown) => void) => resolve([{ count: 1 }]),
-          }),
-          then: (resolve: (v: unknown) => void) => resolve([{ count: 1 }]),
-        })
-      }
-      return chain
-    },
+    select: (arg?: unknown) => (chainable().select as (value?: unknown) => unknown)(arg),
     insert: () => chainable(),
     update: () => chainable(),
     delete: () => chainable(),
@@ -303,6 +366,31 @@ describe('Routing integration with basePath', () => {
 
       expect(res.status).toBe(200)
       expect(await res.text()).toContain('href="/admin/users/42"')
+    })
+
+    it('renders referencedBy links and filters child rows by exact text FK values', async () => {
+      const cookie = await makeAuthCookie()
+
+      const index = await parentApp.request('/admin/posts', { headers: { Cookie: cookie } })
+      const indexHtml = await index.text()
+      expect(indexHtml).toContain('href="/admin/comments?filter_postId=1"')
+
+      const show = await parentApp.request('/admin/posts/1', { headers: { Cookie: cookie } })
+      const showHtml = await show.text()
+      expect(showHtml).toContain('Related')
+      expect(showHtml).toContain('href="/admin/comments?filter_postId=1"')
+
+      const childIndex = await parentApp.request('/admin/comments?filter_postId=1', { headers: { Cookie: cookie } })
+      const childHtml = await childIndex.text()
+      expect(childHtml).toContain('Related comment')
+      expect(childHtml).not.toContain('Unrelated comment')
+      expect(childHtml).toContain('name="filter_postId"')
+      expect(childHtml).toContain('value="1"')
+
+      const partialMatch = await parentApp.request('/admin/comments?filter_postId=0', { headers: { Cookie: cookie } })
+      const partialHtml = await partialMatch.text()
+      expect(partialHtml).not.toContain('Related comment')
+      expect(partialHtml).not.toContain('Unrelated comment')
     })
 
     it('GET /admin/posts preserves declared filter state in the rendered page', async () => {

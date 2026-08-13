@@ -19,6 +19,12 @@ const routeMocks = vi.hoisted(() => {
   ]
 
   const table = { tableName: 'posts', columns }
+  const commentColumns = [
+    { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+    { name: 'postId', sqlName: 'post_id', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+    { name: 'body', sqlName: 'body', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+  ]
+  const commentsTable = { tableName: 'comments', columns: commentColumns }
   const postsResource = {
     table,
     tableName: 'posts',
@@ -30,17 +36,32 @@ const routeMocks = vi.hoisted(() => {
       index: { filters: ['title'] },
       memberActions: [{ name: 'Archive', handler: memberAction }],
       collectionActions: [{ name: 'Refresh', handler: collectionAction }],
+      referencedBy: { comments: { table: 'comments', foreignKey: 'postId' } },
     },
   }
 
-  return { collectionAction, memberAction, postsResource }
+  const commentsResource = {
+    table: commentsTable,
+    tableName: 'comments',
+    routePath: 'comments',
+    displayName: 'Comment',
+    primaryKey: 'id',
+    columns: commentColumns,
+    options: {},
+  }
+
+  return { collectionAction, commentsResource, memberAction, postsResource }
 })
 
-vi.mock('@/resources/loader.ts', () => ({
-  loadResources: async () => ({ resources: [routeMocks.postsResource], errors: [] }),
-  validateResources: () => [],
-  applyReferencedBy: (resources: unknown[]) => resources,
-}))
+vi.mock('@/resources/loader.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/resources/loader.ts')>()
+
+  return {
+    ...actual,
+    loadResources: async () => ({ resources: [routeMocks.postsResource, routeMocks.commentsResource], errors: [] }),
+    validateResources: () => [],
+  }
+})
 
 import { DrizzleAdmin } from '@/DrizzleAdmin.ts'
 
@@ -60,6 +81,10 @@ describe('Knex routing integration', () => {
     routeMocks.collectionAction.mockClear()
     db = new FakeKnex()
     db.rows = [{ id: 1, post_title: 'Hello', created_at: new Date(), updated_at: new Date() }]
+    db.rowsByTable.comments = [
+      { id: 1, post_id: '1', body: 'Related comment' },
+      { id: 2, post_id: '10', body: 'Unrelated comment' },
+    ]
     db.firstRow = { id: 1, post_title: 'Hello', created_at: new Date(), updated_at: new Date() }
     db.insertRows = [{ id: 2, post_title: 'Created' }]
 
@@ -172,6 +197,18 @@ describe('Knex routing integration', () => {
     expect(db.calls).toContainEqual({ method: 'where', args: ['email', 'admin@test.com'] })
   })
 
+  it('filters the child index by exact text FK values', async () => {
+    const cookie = await makeAuthCookie()
+    const response = await app.request('/comments?filter_postId=1', { headers: { Cookie: cookie } })
+    const html = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(html).toContain('Related comment')
+    expect(html).not.toContain('Unrelated comment')
+    expect(db.calls).toContainEqual({ method: 'where', args: ['post_id', '1'] })
+    expect(db.calls).not.toContainEqual({ method: 'where', args: ['post_id', 'ilike', '%1%'] })
+  })
+
   async function getCsrf(path: string, existingCookie = '') {
     const response = await app.request(path, { headers: existingCookie ? { Cookie: existingCookie } : undefined })
     const html = await response.text()
@@ -231,6 +268,7 @@ interface FakeCall {
 class FakeKnex {
   calls: FakeCall[] = []
   rows: BackendRecord[] = []
+  rowsByTable: Record<string, BackendRecord[]> = {}
   firstRow: BackendRecord | undefined
   insertRows: BackendRecord[] = []
 
@@ -239,25 +277,27 @@ class FakeKnex {
 
 class FakeQuery {
   private result: unknown = []
+  private filters: unknown[][] = []
 
-  constructor(tableName: string, private readonly db: FakeKnex) {
+  constructor(private readonly tableName: string, private readonly db: FakeKnex) {
     db.calls.push({ method: 'table', args: [tableName] })
   }
 
   count(args: unknown) {
     this.db.calls.push({ method: 'count', args: [args] })
-    this.result = [{ count: this.db.rows.length }]
+    this.result = 'count'
     return this
   }
 
   select(...args: unknown[]) {
     this.db.calls.push({ method: 'select', args })
-    this.result = this.db.rows
+    this.result = 'select'
     return this
   }
 
   where(...args: unknown[]) {
     this.db.calls.push({ method: 'where', args })
+    this.filters.push(args)
     return this
   }
 
@@ -301,6 +341,19 @@ class FakeQuery {
     onfulfilled?: ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): Promise<TResult1 | TResult2> {
-    return Promise.resolve(this.result).then(onfulfilled, onrejected)
+    const sourceRows = this.db.rowsByTable[this.tableName] ?? this.db.rows
+    const rows = sourceRows.filter((row) => this.filters.every((filter) => {
+      const [column, operatorOrValue, expected] = filter
+      const actual = row[String(column)]
+
+      if (filter.length === 2) return String(actual) === String(operatorOrValue)
+      if (operatorOrValue === 'ilike') {
+        return String(actual).toLowerCase().includes(String(expected).replaceAll('%', '').toLowerCase())
+      }
+
+      return false
+    }))
+    const result = this.result === 'count' ? [{ count: rows.length }] : rows
+    return Promise.resolve(result).then(onfulfilled, onrejected)
   }
 }
