@@ -8,6 +8,7 @@ import { confirmModal, modalTrigger } from '@/views/components/modal.ts'
 import { adminUrl } from '@/utils/url.ts'
 import { formatTimestamp } from '@/utils/date.ts'
 import { referenceLink } from '@/views/components/reference-link.ts'
+import { referencedByLink, type ReferencedByRoute } from '@/views/components/referenced-by-link.ts'
 
 export interface ShowViewProps<TableRef = unknown, ActionDatabase = never> {
   resource: ResourceDefinition<TableRef, ActionDatabase>
@@ -16,10 +17,11 @@ export interface ShowViewProps<TableRef = unknown, ActionDatabase = never> {
   csrfToken: string
   basePath: string
   referenceRoutes: Record<string, string>
+  referencedByRoutes: ReferencedByRoute[]
 }
 
 export function showView<TableRef, ActionDatabase>(props: ShowViewProps<TableRef, ActionDatabase>): { content: string; modals: string } {
-  const { resource, columns, record, csrfToken, basePath, referenceRoutes } = props
+  const { resource, columns, record, csrfToken, basePath, referenceRoutes, referencedByRoutes } = props
   const id = record[resource.primaryKey]
 
   const visibleColumns = getVisibleColumns(columns, resource.options.show)
@@ -61,6 +63,29 @@ export function showView<TableRef, ActionDatabase>(props: ShowViewProps<TableRef
     `
   }).join('')
 
+  const related = referencedByRoutes.length === 0
+    ? ''
+    : `
+      <div class="${styles.cardPadded} mt-4">
+        <h2 class="text-sm font-medium text-zinc-100">Related</h2>
+        <div class="mt-3 flex flex-wrap gap-4">
+          ${referencedByRoutes.map((route) => {
+            const value = record[route.parentKeyName]
+
+            return value === null || value === undefined
+              ? `<span class="${styles.textMuted}">—</span>`
+              : referencedByLink({
+                  label: formatColumnHeader(route.label),
+                  childRoutePath: route.childRoutePath,
+                  foreignKey: route.foreignKey,
+                  value,
+                  basePath,
+                })
+          }).join('')}
+        </div>
+      </div>
+    `
+
   const content = `
     ${actionBar}
     <div class="${styles.cardPadded} mt-4">
@@ -68,6 +93,7 @@ export function showView<TableRef, ActionDatabase>(props: ShowViewProps<TableRef
         ${rows}
       </dl>
     </div>
+    ${related}
   `
 
   return {

@@ -182,6 +182,7 @@ describe('indexView', () => {
     csrfToken: 'test-token',
     basePath: '',
     referenceRoutes: {},
+    referencedByRoutes: [],
   }
 
   it('renders "no records" message when records array is empty', () => {
@@ -224,6 +225,41 @@ describe('indexView', () => {
 
     expect(html).toContain('href="/admin/users/42"')
     expect(html).toContain('>42</a>')
+  })
+
+  it('renders referencedBy columns after data columns and before actions', () => {
+    const html = indexView({
+      ...baseProps,
+      records: [{ id: 42, title: 'Test' }],
+      basePath: '/admin',
+      referencedByRoutes: [{
+        label: 'postComments',
+        childRoutePath: 'comments',
+        foreignKey: 'postId',
+        parentKeyName: 'id',
+      }],
+    })
+
+    expect(html).toContain('href="/admin/comments?filter_postId=42"')
+    expect(html).toContain('>Post Comments</a>')
+    expect(html.indexOf('>Title</a>')).toBeLessThan(html.indexOf('>Post Comments</th>'))
+    expect(html.indexOf('>Post Comments</th>')).toBeLessThan(html.indexOf('>Actions</th>'))
+  })
+
+  it('renders a muted em-dash when a referencedBy parent key is null', () => {
+    const html = indexView({
+      ...baseProps,
+      records: [{ id: 42, title: 'Test', externalId: null }],
+      referencedByRoutes: [{
+        label: 'comments',
+        childRoutePath: 'comments',
+        foreignKey: 'postId',
+        parentKeyName: 'externalId',
+      }],
+    })
+
+    expect(html).toContain(`<span class="text-zinc-400">—</span>`)
+    expect(html).not.toContain('filter_postId=')
   })
 
   it('does not render filter form when no filters are declared', () => {

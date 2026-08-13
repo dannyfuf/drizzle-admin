@@ -100,6 +100,7 @@ describe('showView', () => {
     csrfToken: 'test-token',
     basePath: '',
     referenceRoutes: {},
+    referencedByRoutes: [],
   }
 
   it('returns object with content and modals strings', () => {
@@ -157,5 +158,30 @@ describe('showView', () => {
 
     expect(content).toContain('href="/admin/users/42"')
     expect(content).toContain('>42</a>')
+  })
+
+  it('renders a Related section with referencedBy links after the field card', () => {
+    const { content } = showView({
+      ...baseProps,
+      record: { id: 42, title: 'Test Card' },
+      basePath: '/admin',
+      referencedByRoutes: [{
+        label: 'postComments',
+        childRoutePath: 'comments',
+        foreignKey: 'postId',
+        parentKeyName: 'id',
+      }],
+    })
+
+    expect(content).toContain('Related')
+    expect(content).toContain('href="/admin/comments?filter_postId=42"')
+    expect(content).toContain('>Post Comments</a>')
+    expect(content.indexOf('Test Card')).toBeLessThan(content.indexOf('Related'))
+  })
+
+  it('does not render a Related section without referencedBy routes', () => {
+    const { content } = showView(baseProps)
+
+    expect(content).not.toContain('Related')
   })
 })
