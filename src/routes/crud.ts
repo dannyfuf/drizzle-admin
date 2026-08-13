@@ -36,6 +36,7 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
   const declaredFilters = getDeclaredFilters(resource, columns)
   const perPage = resource.options.index?.perPage ?? 20
   const sortableColumns = getVisibleColumns(columns, resource.options.index).filter(isSortableColumn)
+  const referenceRoutes = buildReferenceRoutes(columns, allResources)
 
   // GET / - Index
   app.get('/', async (c) => {
@@ -81,6 +82,7 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       },
       csrfToken,
       basePath,
+      referenceRoutes,
     })
 
     return c.html(layout({
@@ -159,6 +161,7 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
       record,
       csrfToken,
       basePath,
+      referenceRoutes,
     })
 
     return c.html(layout({
@@ -271,6 +274,21 @@ export function createCrudRoutes<ActionDatabase = unknown, TableRef = unknown>(c
   app.route('/', actionRoutes)
 
   return app
+}
+
+function buildReferenceRoutes<TableRef, ActionDatabase>(
+  columns: ColumnMeta[],
+  allResources: ResourceDefinition<TableRef, ActionDatabase>[],
+): Record<string, string> {
+  const routes: Record<string, string> = {}
+
+  for (const column of columns) {
+    if (!column.references) continue
+    const target = allResources.find((candidate) => candidate.tableName === column.references?.table)
+    if (target) routes[column.name] = target.routePath
+  }
+
+  return routes
 }
 
 export interface IndexFilterState {
