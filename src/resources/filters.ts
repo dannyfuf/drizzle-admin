@@ -7,6 +7,7 @@ export interface DeclaredFilter {
   name: string
   queryKey: string
   column: ColumnMeta
+  matchMode: 'exact' | 'contains'
 }
 
 export type ParsedFilterValue = string | number | boolean | Date
@@ -129,6 +130,7 @@ function resolveDeclaredFilters<TableRef, ActionDatabase>(
       name,
       queryKey: `filter_${name}`,
       column,
+      matchMode: column.dataType === 'text' && !column.references ? 'contains' : 'exact',
     })
   }
 

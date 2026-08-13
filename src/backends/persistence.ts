@@ -215,7 +215,7 @@ export class PersistenceBackend implements AdminBackend<PersistenceActionContext
     for (const parsedFilter of filters) {
       const column = this.getColumn(resource, parsedFilter.filter.name)
 
-      if (parsedFilter.filter.column.dataType === 'text') {
+      if (parsedFilter.filter.matchMode === 'contains') {
         builder.where(column.sqlName, 'ilike', `%${String(parsedFilter.value)}%`)
       } else {
         builder.where(column.sqlName, parsedFilter.value)

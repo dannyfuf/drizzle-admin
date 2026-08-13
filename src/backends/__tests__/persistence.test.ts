@@ -85,6 +85,29 @@ describe('PersistenceBackend', () => {
     expect(repository.calls).toContainEqual({ method: 'offset', args: [20] })
   })
 
+  it('uses equality for text reference filters', async () => {
+    const authorId = makeColumn({
+      name: 'authorId',
+      dataType: 'text',
+      isPrimaryKey: false,
+      hasDefault: false,
+    })
+    const repository = new FakeRepository(makeMetadata([makeColumn(), authorId]), {
+      countRows: [{ count: '1' }],
+    })
+    const backend = new PersistenceBackend()
+    const resource = backend.resolveResource({ table: () => repository, options: {} })
+    resource.columns[1] = {
+      ...resource.columns[1]!,
+      references: { table: 'users', column: 'id' },
+    }
+
+    await backend.count(resource, [makeParsedFilter(resource.columns[1]!, 'user-42')])
+
+    expect(repository.calls).toContainEqual({ method: 'where', args: ['authorId', 'user-42'] })
+    expect(repository.calls).not.toContainEqual({ method: 'where', args: ['authorId', 'ilike', '%user-42%'] })
+  })
+
   it('sorts through the builder when a sort option is given', async () => {
     const title = makeColumn({ name: 'title', dataType: 'text', isPrimaryKey: false, hasDefault: false })
     const repository = new FakeRepository(makeMetadata([makeColumn(), title]), { rows: [] })
@@ -176,6 +199,7 @@ function makeParsedFilter(column: ColumnMeta, value: string | boolean): ParsedFi
       name: column.name,
       queryKey: `filter_${column.name}`,
       column,
+      matchMode: column.dataType === 'text' && !column.references ? 'contains' : 'exact',
     },
     rawValue: String(value),
     value,

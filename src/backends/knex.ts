@@ -122,7 +122,7 @@ export class KnexBackend implements AdminBackend<Knex, KnexTableDefinition> {
     for (const parsedFilter of filters) {
       const column = this.getColumn(resource.table, parsedFilter.filter.name)
 
-      if (parsedFilter.filter.column.dataType === 'text') {
+      if (parsedFilter.filter.matchMode === 'contains') {
         query.where(column.sqlName, 'ilike', `%${String(parsedFilter.value)}%`)
       } else {
         query.where(column.sqlName, parsedFilter.value)

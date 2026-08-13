@@ -43,6 +43,7 @@ function makeFilter(overrides: Partial<DeclaredFilter> = {}): DeclaredFilter {
     name: column.name,
     queryKey: 'filter_title',
     column,
+    matchMode: 'contains',
     ...overrides,
   }
 }

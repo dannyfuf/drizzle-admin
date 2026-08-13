@@ -67,6 +67,27 @@ describe('KnexBackend', () => {
     expect(calls).toContainEqual({ method: 'where', args: ['is_featured', false] })
   })
 
+  it('uses equality for text reference filters', async () => {
+    const { backend, calls } = makeBackend({ countRows: [{ count: '1' }] })
+    const table = makeTable([
+      makeColumn(),
+      makeColumn({
+        name: 'authorId',
+        sqlName: 'author_id',
+        dataType: 'text',
+        isPrimaryKey: false,
+        hasDefault: false,
+        references: { table: 'users', column: 'id' },
+      }),
+    ])
+    const resource = backend.resolveResource({ table, options: {} })
+
+    await backend.count(resource, [makeParsedFilter(resource.columns[1]!, 'user-42')])
+
+    expect(calls).toContainEqual({ method: 'where', args: ['author_id', 'user-42'] })
+    expect(calls).not.toContainEqual({ method: 'where', args: ['author_id', 'ilike', '%user-42%'] })
+  })
+
   it('lists rows with pagination and normalizes SQL column names', async () => {
     const { backend, calls } = makeBackend({
       selectRows: [{ id: 1, post_title: 'Hello' }],
@@ -171,6 +192,7 @@ function makeParsedFilter(column: ColumnMeta, value: string | boolean): ParsedFi
       name: column.name,
       queryKey: `filter_${column.name}`,
       column,
+      matchMode: column.dataType === 'text' && !column.references ? 'contains' : 'exact',
     },
     rawValue: String(value),
     value,
