@@ -69,6 +69,24 @@ describe('formatShowValue', () => {
     expect(result).toContain('&lt;b&gt;')
     expect(result).not.toContain('<b>')
   })
+
+  it('renders registered reference values as escaped, URL-encoded links', () => {
+    const result = formatShowValue(
+      '<user/42>',
+      makeColumn({ name: 'authorId' }),
+      { authorId: 'users' },
+      '/admin',
+    )
+
+    expect(result).toContain('href="/admin/users/%3Cuser%2F42%3E"')
+    expect(result).toContain('&lt;user/42&gt;')
+  })
+
+  it('leaves null reference values unchanged', () => {
+    const result = formatShowValue(null, makeColumn({ name: 'authorId' }), { authorId: 'users' }, '/admin')
+    expect(result).toContain('—')
+    expect(result).not.toContain('<a')
+  })
 })
 
 describe('showView', () => {
@@ -81,6 +99,7 @@ describe('showView', () => {
     record: { id: 1, title: 'Test Card' } as Record<string, unknown>,
     csrfToken: 'test-token',
     basePath: '',
+    referenceRoutes: {},
   }
 
   it('returns object with content and modals strings', () => {
@@ -125,5 +144,18 @@ describe('showView', () => {
     expect(content).toContain('Email')
     expect(content).toContain('test@test.com')
     expect(content).not.toContain('passwordHash')
+  })
+
+  it('renders reference links in detail rows', () => {
+    const { content } = showView({
+      ...baseProps,
+      columns: [makeColumn({ name: 'id', isPrimaryKey: true }), makeColumn({ name: 'authorId' })],
+      record: { id: 1, authorId: 42 },
+      basePath: '/admin',
+      referenceRoutes: { authorId: 'users' },
+    })
+
+    expect(content).toContain('href="/admin/users/42"')
+    expect(content).toContain('>42</a>')
   })
 })

@@ -12,11 +12,13 @@ const mockPostsTable = {
   _columns: {
     id: { name: 'id', dataType: 'number', columnType: 'PgSerial', notNull: true, hasDefault: true, isPrimaryKey: true },
     title: { name: 'title', dataType: 'string', columnType: 'PgText', notNull: true, hasDefault: false, isPrimaryKey: false },
+    authorId: { name: 'author_id', dataType: 'number', columnType: 'PgInteger', notNull: true, hasDefault: false, isPrimaryKey: false },
     createdAt: { name: 'createdAt', dataType: 'date', columnType: 'PgTimestamp', notNull: true, hasDefault: true, isPrimaryKey: false },
     updatedAt: { name: 'updatedAt', dataType: 'date', columnType: 'PgTimestamp', notNull: true, hasDefault: true, isPrimaryKey: false },
   },
   id: { name: 'id' },
   title: { name: 'title' },
+  authorId: { name: 'author_id' },
   createdAt: { name: 'createdAt' },
   updatedAt: { name: 'updatedAt' },
 }
@@ -30,6 +32,15 @@ const postsResource: ResourceDefinition = {
   columns: [
     { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
     { name: 'title', sqlName: 'title', dataType: 'text', isNullable: false, isPrimaryKey: false, hasDefault: false },
+    {
+      name: 'authorId',
+      sqlName: 'author_id',
+      dataType: 'integer',
+      isNullable: false,
+      isPrimaryKey: false,
+      hasDefault: false,
+      references: { table: 'users', column: 'id' },
+    },
     { name: 'createdAt', sqlName: 'created_at', dataType: 'timestamp', isNullable: false, isPrimaryKey: false, hasDefault: true },
     { name: 'updatedAt', sqlName: 'updated_at', dataType: 'timestamp', isNullable: false, isPrimaryKey: false, hasDefault: true },
   ],
@@ -38,6 +49,18 @@ const postsResource: ResourceDefinition = {
       filters: ['title'],
     },
   },
+}
+
+const usersResource: ResourceDefinition = {
+  table: mockPostsTable as unknown as PgTable,
+  tableName: 'users',
+  routePath: 'users',
+  displayName: 'User',
+  primaryKey: 'id',
+  columns: [
+    { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+  ],
+  options: {},
 }
 
 vi.mock('drizzle-orm', () => ({
@@ -54,7 +77,7 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@/resources/loader.ts', () => ({
   loadResources: async () => ({
-    resources: [postsResource],
+    resources: [postsResource, usersResource],
     errors: [],
   }),
   validateResources: () => [],
@@ -112,7 +135,7 @@ function makeMockDb() {
     chain.delete = () => chain
     // Default: returns array with one record for selects
     chain.then = (resolve: (v: unknown) => void) =>
-      resolve([{ id: 1, title: 'Test Post', createdAt: new Date(), updatedAt: new Date() }])
+      resolve([{ id: 1, title: 'Test Post', authorId: 42, createdAt: new Date(), updatedAt: new Date() }])
     return chain
   }
 
@@ -271,6 +294,16 @@ describe('Routing integration with basePath', () => {
       expect(html).toContain('/admin/posts')
     })
 
+    it('GET /admin/posts renders a link to a referenced resource', async () => {
+      const cookie = await makeAuthCookie()
+      const res = await parentApp.request('/admin/posts', {
+        headers: { Cookie: cookie },
+      })
+
+      expect(res.status).toBe(200)
+      expect(await res.text()).toContain('href="/admin/users/42"')
+    })
+
     it('GET /admin/posts preserves declared filter state in the rendered page', async () => {
       const cookie = await makeAuthCookie()
       const res = await parentApp.request('/admin/posts?filter_title=Test', {
@@ -326,6 +359,7 @@ describe('Routing integration with basePath', () => {
       expect(res.status).toBe(200)
       const html = await res.text()
       expect(html).toContain('/admin/posts')
+      expect(html).toContain('href="/admin/users/42"')
     })
 
     it('GET /admin/posts/1/edit returns 200 with edit form', async () => {

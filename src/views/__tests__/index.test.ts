@@ -90,6 +90,25 @@ describe('formatCellValue', () => {
     expect(result).toContain('&lt;script&gt;')
     expect(result).not.toContain('<script>')
   })
+
+  it('renders registered reference values as escaped, URL-encoded links', () => {
+    const result = formatCellValue(
+      '<user/42>',
+      makeColumn({ name: 'authorId' }),
+      { authorId: 'users' },
+      '/admin',
+    )
+
+    expect(result).toContain('href="/admin/users/%3Cuser%2F42%3E"')
+    expect(result).toContain('&lt;user/42&gt;')
+    expect(result).not.toContain('><user/42></a>')
+  })
+
+  it('leaves null reference values unchanged', () => {
+    const result = formatCellValue(null, makeColumn({ name: 'authorId' }), { authorId: 'users' }, '/admin')
+    expect(result).toContain('—')
+    expect(result).not.toContain('<a')
+  })
 })
 
 describe('formatColumnHeader', () => {
@@ -161,6 +180,7 @@ describe('indexView', () => {
     pagination: { currentPage: 1, totalPages: 1, baseUrl: '/cards' },
     csrfToken: 'test-token',
     basePath: '',
+    referenceRoutes: {},
   }
 
   it('renders "no records" message when records array is empty', () => {
@@ -190,6 +210,19 @@ describe('indexView', () => {
     expect(html).toContain('/cards/1')
     expect(html).toContain('View')
     expect(html).toContain('Edit')
+  })
+
+  it('renders reference links in table cells', () => {
+    const html = indexView({
+      ...baseProps,
+      columns: [makeColumn({ name: 'id', isPrimaryKey: true }), makeColumn({ name: 'authorId' })],
+      records: [{ id: 1, authorId: 42 }],
+      basePath: '/admin',
+      referenceRoutes: { authorId: 'users' },
+    })
+
+    expect(html).toContain('href="/admin/users/42"')
+    expect(html).toContain('>42</a>')
   })
 
   it('does not render filter form when no filters are declared', () => {
