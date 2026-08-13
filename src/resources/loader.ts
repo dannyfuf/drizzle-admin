@@ -60,10 +60,11 @@ export async function loadResources<TableRef = PgTable, ActionDatabase = AnyPgDa
         continue
       }
 
-      resources.push(backend.resolveResource({
+      const resource = backend.resolveResource({
         table: exported.table as TableRef,
         options: exported.options as never,
-      }))
+      })
+      resources.push(mergeConfiguredReferences(resource))
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       errors.push(`${file}: Failed to load - ${message}`)
@@ -71,6 +72,29 @@ export async function loadResources<TableRef = PgTable, ActionDatabase = AnyPgDa
   }
 
   return { resources, errors }
+}
+
+function mergeConfiguredReferences<TableRef, ActionDatabase>(
+  resource: ResourceDefinition<TableRef, ActionDatabase>,
+): ResourceDefinition<TableRef, ActionDatabase> {
+  const configuredReferences = resource.options.references
+  if (!configuredReferences) return resource
+
+  return {
+    ...resource,
+    columns: resource.columns.map((column) => {
+      const configured = configuredReferences[column.name]
+      if (!configured) return column
+
+      return {
+        ...column,
+        references: {
+          table: configured.table,
+          column: configured.column ?? 'id',
+        },
+      }
+    }),
+  }
 }
 
 export function validateResources<TableRef, ActionDatabase>(resources: ResourceDefinition<TableRef, ActionDatabase>[]): string[] {

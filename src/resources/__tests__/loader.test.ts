@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { describe, it, expect, vi } from 'vitest'
 import type { AdminBackend } from '@/backends/types.ts'
 import { loadResources, validateResources } from '@/resources/loader.ts'
+import { validateReferences } from '@/resources/references.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 import type { PgTable } from 'drizzle-orm/pg-core'
 
@@ -113,6 +114,105 @@ describe('loadResources', () => {
     } finally {
       await rm(resourcesDir, { recursive: true, force: true })
     }
+  })
+
+  it('merges configured references over introspected references and defaults the target column to id', async () => {
+    const resourcesDir = await mkdtemp(join(tmpdir(), 'drizzle-admin-resources-'))
+    const backend = {
+      name: 'drizzle',
+      resolveResource: vi.fn(({ table, options }) => makeResource({
+        table,
+        columns: [
+          {
+            name: 'authorId',
+            sqlName: 'author_id',
+            dataType: 'integer',
+            isNullable: false,
+            isPrimaryKey: false,
+            hasDefault: false,
+            references: { table: 'legacy_users', column: 'legacy_id' },
+          },
+        ],
+        options,
+      })),
+    } as unknown as AdminBackend
+
+    try {
+      await writeFile(
+        join(resourcesDir, 'posts.js'),
+        `module.exports = { __drizzleAdminResource: true, table: {}, options: { references: { authorId: { table: 'users' } } } }`,
+      )
+
+      const { resources, errors } = await loadResources(resourcesDir, backend)
+
+      expect(errors).toEqual([])
+      expect(resources[0].columns[0].references).toEqual({ table: 'users', column: 'id' })
+    } finally {
+      await rm(resourcesDir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('validateReferences', () => {
+  const users = makeResource({ tableName: 'users', routePath: 'users' })
+
+  it('accepts configured references to registered resources', () => {
+    const posts = makeResource({
+      tableName: 'posts',
+      columns: [{
+        name: 'authorId',
+        sqlName: 'author_id',
+        dataType: 'integer',
+        isNullable: false,
+        isPrimaryKey: false,
+        hasDefault: false,
+      }],
+      options: { references: { authorId: { table: 'users' } } },
+    })
+
+    expect(validateReferences(posts, [posts, users])).toEqual([])
+  })
+
+  it('rejects configured references for unknown columns', () => {
+    const posts = makeResource({
+      tableName: 'posts',
+      options: { references: { missing: { table: 'users' } } },
+    })
+
+    expect(validateReferences(posts, [posts, users])[0]).toContain('unknown column "missing"')
+  })
+
+  it('rejects configured references to unregistered tables', () => {
+    const posts = makeResource({
+      tableName: 'posts',
+      columns: [{
+        name: 'authorId',
+        sqlName: 'author_id',
+        dataType: 'integer',
+        isNullable: false,
+        isPrimaryKey: false,
+        hasDefault: false,
+      }],
+      options: { references: { authorId: { table: 'missing_users' } } },
+    })
+
+    expect(validateReferences(posts, [posts])[0]).toContain('unregistered table "missing_users"')
+  })
+
+  it('does not validate introspected references to unregistered tables', () => {
+    const posts = makeResource({
+      columns: [{
+        name: 'authorId',
+        sqlName: 'author_id',
+        dataType: 'integer',
+        isNullable: false,
+        isPrimaryKey: false,
+        hasDefault: false,
+        references: { table: 'missing_users', column: 'id' },
+      }],
+    })
+
+    expect(validateReferences(posts, [posts])).toEqual([])
   })
 })
 

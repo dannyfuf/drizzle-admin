@@ -59,6 +59,8 @@ export interface ResourceOptions<Database = AnyPgDatabase> {
   memberActions?: MemberAction<Database>[]
   /** Actions available on the collection as a whole. */
   collectionActions?: CollectionAction<Database>[]
+  /** Reference metadata keyed by the resource's JavaScript column name. */
+  references?: Record<string, { table: string; column?: string }>
 }
 
 export type DrizzleResourceOptions = ResourceOptions<AnyPgDatabase>
