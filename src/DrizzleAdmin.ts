@@ -15,7 +15,7 @@ import { authMiddleware } from "@/auth/middleware.ts";
 import { createInMemoryLoginRateLimiter } from "@/auth/rate-limit.ts";
 import { loginPage } from "@/views/login.ts";
 import { hashPassword } from "@/auth/password.ts";
-import { adminUrl } from "@/utils/url.ts";
+import { adminUrl, normalizeBasePath } from "@/utils/url.ts";
 import type { AnyPgDatabase, PersistenceActionContext, PersistenceResourceRef } from "@/types.ts";
 
 /**
@@ -64,17 +64,7 @@ export class DrizzleAdmin {
     this.app = new Hono();
     this.backend = createBackend(config);
 
-    // Normalize and validate basePath
-    const raw = config.basePath ?? '';
-    if (raw) {
-      if (!raw.startsWith('/')) {
-        throw new Error(`basePath must start with "/". Got: "${raw}"`);
-      }
-      if (raw.includes('//')) {
-        throw new Error(`basePath must not contain "//". Got: "${raw}"`);
-      }
-    }
-    this.basePath = raw.endsWith('/') ? raw.slice(0, -1) : raw;
+    this.basePath = normalizeBasePath(config.basePath ?? '');
 
     this.backend.validateAdminUsersTable(config.adminUsers);
   }
