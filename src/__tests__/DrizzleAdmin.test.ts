@@ -239,6 +239,36 @@ describe('DrizzleAdmin', () => {
       const admin = new DrizzleAdmin(makeConfig())
       await expect(admin.initialize()).rejects.toThrow('Invalid resource configuration')
     })
+
+    it('fails fast with the aggregated message for invalid referencedBy configuration', async () => {
+      const resource: ResourceDefinition = {
+        table: {
+          _columns: {
+            id: { name: 'id' },
+          },
+          id: { name: 'id' },
+        } as unknown as PgTable,
+        tableName: 'posts',
+        routePath: 'posts',
+        displayName: 'Post',
+        primaryKey: 'id',
+        columns: [
+          { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+        ],
+        options: {
+          referencedBy: {
+            comments: { table: 'missing_comments', foreignKey: 'postId' },
+          },
+        },
+      }
+
+      loaderMocks.loadResourcesMock.mockResolvedValue({ resources: [resource], errors: [] })
+
+      const admin = new DrizzleAdmin(makeConfig())
+      await expect(admin.initialize()).rejects.toThrow(
+        'Invalid resource configuration. 1 error(s) found.',
+      )
+    })
   })
 
   describe('seed with Knex', () => {

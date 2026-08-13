@@ -1,7 +1,7 @@
 import type { ColumnMeta } from '@/dialects/types.ts'
 import type { ResourceDefinition } from '@/resources/types.ts'
 
-const SUPPORTED_FILTER_DATA_TYPES = new Set(['text', 'integer', 'boolean', 'enum', 'timestamp'])
+export const SUPPORTED_FILTER_DATA_TYPES = new Set(['text', 'integer', 'boolean', 'enum', 'timestamp'])
 
 export interface DeclaredFilter {
   name: string
@@ -176,6 +176,6 @@ function parseFilterValue(column: ColumnMeta, rawValue: string): ParsedFilterVal
   return null
 }
 
-function isPasswordColumn(name: string): boolean {
+export function isPasswordColumn(name: string): boolean {
   return name.toLowerCase().includes('password')
 }
