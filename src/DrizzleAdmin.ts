@@ -8,6 +8,7 @@ import { createPersistenceBackend } from "@/backends/persistence.ts";
 import type { DrizzleAdminConfig, KnexBackendConfig, PersistenceBackendConfig } from "@/config.ts";
 import { validateDeclaredFilters } from "@/resources/filters.ts";
 import { loadResources, validateResources } from "@/resources/loader.ts";
+import { validateReferences } from "@/resources/references.ts";
 import type { KnexTableDefinition, ResourceDefinition } from "@/resources/types.ts";
 import { createAuthRoutes } from "@/routes/auth.ts";
 import { createCrudRoutes } from "@/routes/crud.ts";
@@ -86,7 +87,14 @@ export class DrizzleAdmin {
     const filterValidationErrors = resources.flatMap((resource) =>
       validateDeclaredFilters(resource, resource.columns),
     );
-    const allValidationErrors = [...validationErrors, ...filterValidationErrors];
+    const referenceValidationErrors = resources.flatMap((resource) =>
+      validateReferences(resource, resources),
+    );
+    const allValidationErrors = [
+      ...validationErrors,
+      ...filterValidationErrors,
+      ...referenceValidationErrors,
+    ];
     if (allValidationErrors.length > 0) {
       for (const error of allValidationErrors) {
         console.error(`[DrizzleAdmin] ${error}`);

@@ -207,6 +207,37 @@ describe('DrizzleAdmin', () => {
       const admin = new DrizzleAdmin(makeConfig())
       await expect(admin.initialize()).rejects.toThrow('Invalid resource configuration')
     })
+
+    it('fails fast for references to unregistered resources', async () => {
+      const resource: ResourceDefinition = {
+        table: {
+          _columns: {
+            id: { name: 'id' },
+            authorId: { name: 'author_id' },
+          },
+          id: { name: 'id' },
+          authorId: { name: 'author_id' },
+        } as unknown as PgTable,
+        tableName: 'posts',
+        routePath: 'posts',
+        displayName: 'Post',
+        primaryKey: 'id',
+        columns: [
+          { name: 'id', sqlName: 'id', dataType: 'integer', isNullable: false, isPrimaryKey: true, hasDefault: true },
+          { name: 'authorId', sqlName: 'author_id', dataType: 'integer', isNullable: false, isPrimaryKey: false, hasDefault: false },
+        ],
+        options: {
+          references: {
+            authorId: { table: 'users' },
+          },
+        },
+      }
+
+      loaderMocks.loadResourcesMock.mockResolvedValue({ resources: [resource], errors: [] })
+
+      const admin = new DrizzleAdmin(makeConfig())
+      await expect(admin.initialize()).rejects.toThrow('Invalid resource configuration')
+    })
   })
 
   describe('seed with Knex', () => {
