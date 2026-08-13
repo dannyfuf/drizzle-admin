@@ -321,6 +321,27 @@ defineConfig({
 
 With `basePath: '/admin'`, the login page is served at `/admin/login`, resources at `/admin/posts`, etc. Trailing slashes are stripped automatically.
 
+### Building resource URLs
+
+Use `createResourceUrls()` when application code outside DrizzleAdmin needs to link to a resource. It accepts either a Drizzle PostgreSQL table or a SQL table-name string, so it also works with Knex and Persistence resources.
+
+```ts
+import { createResourceUrls } from 'drizzle-admin'
+
+const resourceUrls = createResourceUrls({
+  basePath: '/admin',
+  origin: 'https://app.example.com',
+})
+
+resourceUrls.index('blog_posts')
+// { path: '/admin/blog-posts', url: 'https://app.example.com/admin/blog-posts' }
+
+resourceUrls.show('blog_posts', 42)
+// { path: '/admin/blog-posts/42', url: 'https://app.example.com/admin/blog-posts/42' }
+```
+
+The available methods are `index(table)`, `show(table, id)`, `edit(table, id)`, and `new(table)`. Record IDs are URL-encoded. When `origin` is omitted, `url` equals `path`.
+
 ## Integrating with Existing Apps
 
 Instead of running a standalone server with `start()`, you can use `build()` to get a handler and mount it into your existing application.
@@ -480,6 +501,22 @@ export default defineResource(posts, {
 ```
 
 Groups resources under collapsible folders in the sidebar. Resources without a `folder` appear at the top level. Folders auto-expand when the active resource is inside them. Resources are sorted alphabetically within each group.
+
+#### `references` - Cross-resource links
+
+Drizzle resources automatically detect single-column foreign keys. When the referenced table is also registered as a resource, its raw foreign-key value becomes a link in index and detail views. Composite foreign keys are not linkified.
+
+For Knex and Persistence resources, or to override introspected metadata, declare references by the resource's column name:
+
+```ts
+export default defineResource(posts, {
+  references: {
+    authorId: { table: 'users', column: 'id' },
+  },
+})
+```
+
+`column` defaults to `'id'`. Configured references must identify an existing column on the current resource and a target table that is registered as a resource. Reference links use the raw stored value and do not perform additional queries.
 
 #### `permitParams` - Editable field whitelist
 
